@@ -168,7 +168,6 @@ namespace System.IO
             FirstPipeInstance = 0x00080000
         }
 
-
         //https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/ntifs/ns-ntifs-_reparse_data_buffer
         [StructLayout(LayoutKind.Sequential)]
         private struct REPARSE_DATA_BUFFER
@@ -180,13 +179,13 @@ namespace System.IO
 
             /// <summary>
             /// Size, in bytes, of the data after the Reserved member. This can be calculated by:
-            /// (4 * sizeof(ushort)) + SubstituteNameLength + PrintNameLength + 
+            /// (4 * sizeof(ushort)) + SubstituteNameLength + PrintNameLength +
             /// (namesAreNullTerminated ? 2 * sizeof(char) : 0);
             /// </summary>
             public ushort ReparseDataLength;
 
             /// <summary>
-            /// Reserved; do not use. 
+            /// Reserved; do not use.
             /// </summary>
             public ushort Reserved;
 
@@ -208,7 +207,7 @@ namespace System.IO
 
             /// <summary>
             /// Length, in bytes, of the print name string. If this string is null-terminated,
-            /// PrintNameLength does not include space for the null character. 
+            /// PrintNameLength does not include space for the null character.
             /// </summary>
             public ushort PrintNameLength;
 
@@ -231,18 +230,18 @@ namespace System.IO
 
             /// <summary>
             /// Size, in bytes, of the data after the Reserved member. This can be calculated by:
-            /// (4 * sizeof(ushort)) + SubstituteNameLength + PrintNameLength + 
+            /// (4 * sizeof(ushort)) + SubstituteNameLength + PrintNameLength +
             /// (namesAreNullTerminated ? 2 * sizeof(char) : 0);
             /// </summary>
             public ushort ReparseDataLength;
 
             /// <summary>
-            /// Reserved; do not use. 
+            /// Reserved; do not use.
             /// </summary>
             public ushort Reserved;
 
             /// <summary>
-            /// 
+            ///
             /// </summary>
             public Guid ReparseGuid;
 
@@ -281,20 +280,19 @@ namespace System.IO
         /// <param name="allowTargetNotExist">If true then allows the target directory to not exist, therefore creating a junction pointing to a location which doesn't exist</param>
         /// <exception cref="IOException">Thrown when the junction point could not be created or when
         /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
-        public static void Create(string Junction, string targetDir, bool overwrite, bool allowTargetNotExist = false)
+        public static void Create(string Junction, string targetDir, bool overwrite = false, bool allowTargetNotExist = false)
         {
             if( string.IsNullOrWhiteSpace(targetDir))
             {
                 if( !allowTargetNotExist)
                 {
-                    throw new IOException("Target path not specified.");    
+                    throw new IOException("Target path not specified.");
                 }
             }
             else
             {
                 targetDir = Path.GetFullPath(targetDir);
             }
-
 
             if (!allowTargetNotExist && !Directory.Exists(targetDir))
             {
@@ -354,7 +352,6 @@ namespace System.IO
             }
         }
 
-
         /// <summary>
         /// Creates a junction point from the specified directory to the specified target directory.
         /// </summary>
@@ -367,7 +364,7 @@ namespace System.IO
         /// <param name="allowTargetNotExist">If true then allows the target directory to not exist, therefore creating a junction pointing to a location which doesn't exist</param>
         /// <exception cref="IOException">Thrown when the junction point could not be created or when
         /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
-        public static void GetJunctionData(string Junction)
+        public static string GetJunctionData(string Junction)
         {
             if (!Directory.Exists(Junction))
             {
@@ -389,7 +386,7 @@ namespace System.IO
                     {
                         int error = Marshal.GetLastWin32Error();
                         if (error == ERROR_NOT_A_REPARSE_POINT)
-                            return;
+                            return null;
 
                         ThrowLastWin32Error("Unable to get information about junction point.");
                     }
@@ -398,7 +395,7 @@ namespace System.IO
                         Marshal.PtrToStructure(outBuffer, typeof(REPARSE_DATA_BUFFER));
 
                     if (reparseDataBuffer.ReparseTag != IO_REPARSE_TAG_MOUNT_POINT)
-                        return;
+                        return null;
 
                     string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer,
                             reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
@@ -406,7 +403,7 @@ namespace System.IO
                     if (targetDir.StartsWith(NonInterpretedPathPrefix))
                         targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
 
-                    //return targetDir;
+                    return targetDir;
                 }
                 finally
                 {
@@ -507,7 +504,9 @@ namespace System.IO
                             inBuffer, 8, IntPtr.Zero, 0, out bytesReturned, IntPtr.Zero);
 
                     if (!result)
+                    {
                         ThrowLastWin32Error("Unable to delete junction point.");
+                    }
                 }
                 finally
                 {

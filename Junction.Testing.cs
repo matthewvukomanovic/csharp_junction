@@ -7,102 +7,171 @@ using System.Text;
 
 namespace System.IO
 {
-    public static partial class Junction
+    public static partial class JunctionTesting
     {
-        public static class Testing
+        public const string baseDirectory = "testing";
+        public const string actualTarget1 = baseDirectory + "\\target1";
+        public const string actualTarget2 = baseDirectory + "\\target2";
+
+        public const string junctionDirectory = baseDirectory + "\\junc";
+        public const string junctionDirectory2 = baseDirectory + "\\junc2";
+
+        public const string junc1FileContent = "file1";
+        public const string junc2FileContent = "file2";
+
+        public static void Main()
         {
-            public static void Main()
+            ClearBaseDirectory();
+
+            Directory.CreateDirectory(actualTarget1);
+
+            try
             {
-
-                GenericReparseGeneralBuffer buff = new GenericReparseGeneralBuffer();
-                buff.MountPointReparseBuffer.PrintNameOffset = 5;
-                buff.MountPointReparseBuffer.PrintNameLength = 50;
-                buff.MountPointReparseBuffer.Flags = 79;
-
-                Assert(buff.SymbolicLinkReparseBuffer.PrintNameOffset==5, "buff.SymbolicLinkReparseBuffer.PrintNameOffset==5");
-                Assert(buff.SymbolicLinkReparseBuffer.PrintNameLength==50, "buff.SymbolicLinkReparseBuffer.PrintNameLength==50");
-
-                buff.SymbolicLinkReparseBuffer.PrintNameOffset = 45;
-                buff.SymbolicLinkReparseBuffer.PrintNameLength = 6;
-
-                Assert(buff.MountPointReparseBuffer.PrintNameOffset==45, "buff.MountPointReparseBuffer.PrintNameOffset==45");
-                Assert(buff.MountPointReparseBuffer.PrintNameLength==6, "buff.MountPointReparseBuffer.PrintNameLength==6");
-
-
-                //JunctionPoint.Create(@"s:\test\junc", @"b:\", true, true);
-                //
-                //JunctionPoint.Create(@"B:\J\Temp", @"K:\", true, true);
-                //
-                //JunctionPoint.GetJunctionPointData(@"B:\J\Video\Movies");
-                //JunctionPoint.GetJunctionPointData(@"s:\test\junc");
-                //
-                //JunctionPoint.Create(@"s:\test\junc", @"s:\test\junc2", true, true);
-                ////JunctionPoint.Create(@"s:\test\junc", @"\\?\UNC\10.1.1.2\b\", true, true);
-                //
-                //GetSymbolicLinkTarget(@"b:\").Dump();
-                //GetSymbolicLinkTarget(@"s:\test\target").Dump();
-                //GetSymbolicLinkTarget(@"s:\test\").Dump();
-                //GetSymbolicLinkTarget(new DirectoryInfo(@"s:\test\target")).Dump();
-                ////Directory.CreateDirectory( @"s:\test\target");
-                ////JunctionPoint.Create(@"s:\test\junc", @"s:\test\target", true, true);
-                //JunctionPoint.Create(@"s:\test\junc", @"s:\test\junc2", true, true);
-                //JunctionPoint.Create(@"s:\test\junc2", @"s:\test\target", true, true);
-                ////JunctionPoint.Create(@"s:\test\junc", @"s:\test\t2", true, true);
-                ////JunctionPoint.Create(@"s:\test\junc", @"s:\test\", true, true);
-                //////JunctionPoint.Create(@"s:\test\junc", null, true, true);
-                ////JunctionPoint.ClearJunctionPoint(@"s:\test\junc");
-                ////uint i32 = (uint)Marshal.GetHRForLastWin32Error();
-                //JunctionPoint.GetTarget(@"s:\test\junc2").Dump();
-                //JunctionPoint.GetTarget(@"s:\test\junc").Dump();
-                //GetSymbolicLinkTarget(new DirectoryInfo(@"s:\test\junc2")).Dump();
-                //GetSymbolicLinkTarget(new DirectoryInfo(@"s:\test\junc")).Dump();
-                System.Console.WriteLine(buff.MountPointReparseBuffer.PrintNameOffset);
+                RunTests();
             }
-
-            public static void Assert(bool condition, string message = null)
+            catch(Exception exc)
             {
-                if( !condition)
+                System.Console.Error.WriteLine(exc.Message);
+                System.Console.Error.WriteLine(exc.StackTrace);
+                Environment.Exit(-2);
+            }
+            finally
+            {
+                ClearBaseDirectory();
+            }
+        }
+
+        public static void ClearBaseDirectory()
+        {
+            try
+            {
+                if( Directory.Exists(baseDirectory))
                 {
-                    if( string.IsNullOrWhiteSpace(message))
-                    {
-                        message = "Assert Failed";
-                    }
-                    System.Console.Error.WriteLine("Failed: " + message);
-                    System.Console.Error.WriteLine(Environment.StackTrace);
-                    
-                    Environment.Exit(-1);
+                    Directory.Delete(baseDirectory, true);
                 }
             }
+            catch
+            {
+            }
+        }
 
-            // public static unsafe void Main()
-            // {
-            //     REPARSE_DATA_BUFFER_2 ex = new REPARSE_DATA_BUFFER_2();
-            //     byte* addr = (byte*)&ex;
-            //     Console.WriteLine("Size:      													{0}", sizeof(GenericReparseGeneralBuffer));
-            //     Console.WriteLine("ex.GenericReparseBuffer.PathBuffer Offset:					{0}", (byte*)ex.Buffer.GenericReparseBuffer.PathBuffer - addr);
-            //     Console.WriteLine("ex.SymbolicLinkReparseBuffer.SubstituteNameOffset Offset:	{0}", (byte*)&ex.Buffer.SymbolicLinkReparseBuffer.SubstituteNameOffset - addr);
-            //     Console.WriteLine("ex.SymbolicLinkReparseBuffer.SubstituteNameLength Offset:	{0}", (byte*)&ex.Buffer.SymbolicLinkReparseBuffer.SubstituteNameLength - addr);
-            //     Console.WriteLine("ex.SymbolicLinkReparseBuffer.PrintNameOffset Offset:			{0}", (byte*)&ex.Buffer.SymbolicLinkReparseBuffer.PrintNameOffset - addr);
-            //     Console.WriteLine("ex.SymbolicLinkReparseBuffer.PrintNameLength Offset:			{0}", (byte*)&ex.Buffer.SymbolicLinkReparseBuffer.PrintNameLength - addr);
-            //     Console.WriteLine("ex.SymbolicLinkReparseBuffer.PathBuffer Offset:				{0}", (byte*)ex.Buffer.SymbolicLinkReparseBuffer.PathBuffer - addr);
+        public static void RunTests()
+        {
+            Assert(!Directory.Exists(junctionDirectory));
+            Assert(!Directory.Exists(junctionDirectory2));
+            Assert(!Junction.Exists(junctionDirectory));
+            Assert(!Junction.Exists(junctionDirectory2));
 
-            //     Console.WriteLine("ex.MountPointReparseBuffer.SubstituteNameOffset Offset:		{0}", (byte*)&ex.Buffer.MountPointReparseBuffer.SubstituteNameOffset - addr);
-            //     Console.WriteLine("ex.MountPointReparseBuffer.SubstituteNameLength Offset:		{0}", (byte*)&ex.Buffer.MountPointReparseBuffer.SubstituteNameLength - addr);
-            //     Console.WriteLine("ex.MountPointReparseBuffer.PrintNameOffset Offset:			{0}", (byte*)&ex.Buffer.MountPointReparseBuffer.PrintNameOffset - addr);
-            //     Console.WriteLine("ex.MountPointReparseBuffer.PrintNameLength Offset:			{0}", (byte*)&ex.Buffer.MountPointReparseBuffer.PrintNameLength - addr);
-            //     Console.WriteLine("ex.MountPointReparseBuffer.Flags Offset:						{0}", (byte*)&ex.Buffer.MountPointReparseBuffer.Flags - addr);
-            //     Console.WriteLine("ex.MountPointReparseBuffer.PathBuffer Offset:				{0}", (byte*)ex.Buffer.MountPointReparseBuffer.PathBuffer - addr);
-            //     ex.Reserved = 7;
-            //     ex.Buffer.MountPointReparseBuffer.Flags = 7881;
+            Junction.Create(junctionDirectory, actualTarget1);
+            Assert(Directory.Exists(junctionDirectory));
+            Assert(Junction.Exists(junctionDirectory));
 
-            //     ex.Buffer.SymbolicLinkReparseBuffer.PathBuffer[0] = 'h';
-            //     ex.Buffer.SymbolicLinkReparseBuffer.PathBuffer[1] = 'e';
-            //     ex.Buffer.SymbolicLinkReparseBuffer.PathBuffer[2] = 'l';
-            //     ex.Buffer.SymbolicLinkReparseBuffer.PathBuffer[3] = 'l';
-            //     ex.Buffer.SymbolicLinkReparseBuffer.PathBuffer[4] = '0';
-            //     ex.Buffer.SymbolicLinkReparseBuffer.PathBuffer[5] = '\0';
-            // }
+            AssertThrows(()=>Junction.Create(junctionDirectory, actualTarget1));
+            Junction.Create(junctionDirectory, actualTarget1, true);
+            Assert(Junction.Exists(junctionDirectory));
 
+            AssertThrows(()=>Junction.Create(junctionDirectory, actualTarget2, true, false));
+            Junction.Create(junctionDirectory, actualTarget2, true, true);
+            Assert(Junction.Exists(junctionDirectory));
+
+            Assert(!Junction.Exists(junctionDirectory2));
+
+            AssertThrows(()=>Junction.Create(junctionDirectory2, actualTarget2, true));
+            Assert(!Directory.Exists(junctionDirectory2));
+            Assert(!Junction.Exists(junctionDirectory2));
+
+            Junction.Create(junctionDirectory2, actualTarget2, true, true);
+            Assert(Directory.Exists(junctionDirectory2));
+            Assert(Junction.Exists(junctionDirectory2));
+
+            Junction.ClearJunction(junctionDirectory2);
+            Assert(Directory.Exists(junctionDirectory2));
+            Assert(!Junction.Exists(junctionDirectory2));
+            //System.Console.WriteLine("Exists: " + junctionDirectory2);
+
+             AssertThrows(()=>Junction.ClearJunction(junctionDirectory2));
+             Assert(Directory.Exists(junctionDirectory2));
+            //  //System.Console.WriteLine("Exists: " + junctionDirectory2);
+            //  Assert(!Junction.Exists(junctionDirectory2));
+
+            // System.Console.WriteLine(junctionDirectory);
+            // System.Console.WriteLine($"GetJunctionData for {junctionDirectory} = {Junction.GetJunctionData(junctionDirectory)}");
+            // System.Console.WriteLine($"GetTarget for {junctionDirectory} = {Junction.GetTarget(junctionDirectory)}");
+            // var fullPath = Path.GetFullPath(junctionDirectory);
+            // System.Console.WriteLine($"Full Path {fullPath}");
+
+            // TODO: This one shouldn't throw an exception if it points to an incorrect folder
+            //System.Console.WriteLine($"GetSymbolicLinkTarget for {fullPath}= {Junction.GetSymbolicLinkTarget(fullPath)}");
+
+// void Create(string Junction, string targetDir, bool overwrite = false, bool allowTargetNotExist = false)
+// string GetTarget(string Junction)
+// string GetJunctionData(string Junction)
+// string GetSymbolicLinkTarget(string fullPath)
+// string GetSymbolicLinkTarget(System.IO.DirectoryInfo symlink)
+
+            Assert(Junction.GetTarget(junctionDirectory) == Path.GetFullPath(actualTarget2));
+
+            Junction.Create(junctionDirectory2, actualTarget1, true, true);
+            Junction.Create(junctionDirectory, junctionDirectory2, true, true);
+
+            // System.Console.WriteLine($"GetJunctionData for {junctionDirectory} = {Junction.GetJunctionData(junctionDirectory)}");
+            // System.Console.WriteLine($"GetTarget for {junctionDirectory} = {Junction.GetTarget(junctionDirectory)}");
+
+            //  System.Console.WriteLine($"GetSymbolicLinkTarget for {Path.GetFullPath(junctionDirectory)} = {Junction.GetSymbolicLinkTarget(Path.GetFullPath(junctionDirectory))}");
+            //  System.Console.WriteLine($"{Path.GetFullPath(actualTarget1)}");
+
+            Assert(Junction.GetJunctionData(junctionDirectory) == Path.GetFullPath(junctionDirectory2));
+            Assert(Junction.GetTarget(junctionDirectory) == Path.GetFullPath(junctionDirectory2));
+            Assert(Junction.GetSymbolicLinkTarget(Path.GetFullPath(junctionDirectory)).Equals(Path.GetFullPath(actualTarget1), StringComparison.InvariantCultureIgnoreCase));
+
+// void ClearJunction(string Junction)
+// void Delete(string Junction)
+// bool Exists(string path)
+
+            Junction.Delete(junctionDirectory);
+            Assert(!Junction.Exists(junctionDirectory));
+            Assert(!Directory.Exists(junctionDirectory));
+            Junction.ClearJunction(junctionDirectory2);
+            Assert(!Junction.Exists(junctionDirectory2));
+            Assert(Directory.Exists(junctionDirectory2));
+
+            Directory.Delete(junctionDirectory2, true);
+            Directory.Delete(actualTarget1, true);
+        }
+
+        public static void Assert(bool condition, string message = null)
+        {
+            if( !condition)
+            {
+                if( string.IsNullOrWhiteSpace(message))
+                {
+                    message = "Assert Failed";
+                }
+                System.Console.Error.WriteLine("Failed: " + message);
+                System.Console.Error.WriteLine(Environment.StackTrace);
+
+                Environment.Exit(-1);
+            }
+        }
+
+        public static void AssertThrows(Action action, string message = null)
+        {
+            try
+            {
+                action();
+
+                if( string.IsNullOrWhiteSpace(message))
+                {
+                    message = "Assert Throw Exception Failed";
+                }
+                System.Console.Error.WriteLine("Failed: " + message);
+                System.Console.Error.WriteLine(Environment.StackTrace);
+
+                Environment.Exit(-1);
+            }
+            catch //( Exception exc)
+            {
+            }
         }
     }
 }
