@@ -22,6 +22,6 @@ To build the unsafe dll (testing)
 To build the unsafe testing exe (testing)
 
 ```
-"C:\Program Files (x86)\MSBuild\14.0\Bin\csc" -nologo /unsafe Junction.Testing.cs Junction.Unsafe.cs
-"C:\Program Files (x86)\MSBuild\14.0\Bin\csc" -nologo /unsafe Junction.Testing.cs Junction.Unsafe.cs -out:Junction.Testing.exe
+"C:\Program Files (x86)\MSBuild\14.0\Bin\csc" -nologo /unsafe Junction.Unsafe.Testing.cs Junction.Unsafe.cs
+"C:\Program Files (x86)\MSBuild\14.0\Bin\csc" -nologo /unsafe Junction.Unsafe.Testing.cs Junction.Unsafe.cs -out:Junction.Unsafe.Testing.exe
 ```
