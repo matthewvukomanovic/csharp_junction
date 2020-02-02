@@ -548,11 +548,7 @@ namespace System.IO
         {
             using (SafeFileHandle handle = OpenReparsePoint(Junction, EFileAccess.GenericRead))
             {
-                string target = InternalGetTarget(handle);
-                if (target == null)
-                    throw new IOException("Path is not a junction point.");
-
-                return target;
+                return InternalGetTarget(handle);
             }
         }
 
