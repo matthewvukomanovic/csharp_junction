@@ -388,7 +388,7 @@ namespace System.IO
         {
             if (!Directory.Exists(Junction))
             {
-                throw new IOException("Directory already exists and overwrite parameter is false.");
+                throw new IOException("Directory does not exist so cannot get junction data");
             }
 
             using (SafeFileHandle handle = OpenReparsePoint(Junction, EFileAccess.GenericWrite))
