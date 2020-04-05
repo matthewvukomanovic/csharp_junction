@@ -3,3 +3,9 @@
 *.pdb
 obj/
 .vs/
+Debug/
+Release/
+*.exe.manifest
+*.VC.opendb
+*.VC.db
+ipch/
