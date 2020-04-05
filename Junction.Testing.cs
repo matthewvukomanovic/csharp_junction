@@ -28,6 +28,7 @@ namespace System.IO
             try
             {
                 RunTests();
+                System.Console.WriteLine("Tests Finished");
             }
             catch(Exception exc)
             {
@@ -45,8 +46,10 @@ namespace System.IO
         {
             try
             {
+                System.Console.WriteLine("Clearing directrory");
                 if( Directory.Exists(baseDirectory))
                 {
+                    System.Console.WriteLine($"Directory {baseDirectory} exists so delete");
                     Directory.Delete(baseDirectory, true);
                 }
             }

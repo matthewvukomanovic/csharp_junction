@@ -55,6 +55,7 @@ namespace System.IO
                 //GetSymbolicLinkTarget(new DirectoryInfo(@"s:\test\junc2")).Dump();
                 //GetSymbolicLinkTarget(new DirectoryInfo(@"s:\test\junc")).Dump();
                 System.Console.WriteLine(buff.MountPointReparseBuffer.PrintNameOffset);
+                System.Console.WriteLine("All tests completed successfully");
             }
 
             public static void Assert(bool condition, string message = null)
