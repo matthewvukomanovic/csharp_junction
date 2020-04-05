@@ -282,6 +282,7 @@ namespace System.IO
         /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
         public static void Create(string Junction, string targetDir, bool overwrite = false, bool allowTargetNotExist = false)
         {
+            var isVolume = false;
             if( string.IsNullOrWhiteSpace(targetDir))
             {
                 if( !allowTargetNotExist)
@@ -291,10 +292,17 @@ namespace System.IO
             }
             else
             {
-                targetDir = Path.GetFullPath(targetDir);
+                if (targetDir.StartsWith(NonInterpretedPathPrefix + "Volume"))
+                {
+                    isVolume = true;
+                }
+                else
+                {
+                    targetDir = Path.GetFullPath(targetDir);
+                }
             }
 
-            if (!allowTargetNotExist && !Directory.Exists(targetDir))
+            if (!isVolume && !allowTargetNotExist && !Directory.Exists(targetDir))
             {
                 throw new IOException("Target path does not exist or is not a directory.");
             }
@@ -318,7 +326,15 @@ namespace System.IO
                 }
                 else
                 {
-                    targetDirBytes = Encoding.Unicode.GetBytes(NonInterpretedPathPrefix + Path.GetFullPath(targetDir));
+                    if( isVolume)
+                    {
+                        targetDirBytes = Encoding.Unicode.GetBytes(targetDir);
+                    }
+                    else
+                    {
+                        targetDirBytes = Encoding.Unicode.GetBytes(NonInterpretedPathPrefix + Path.GetFullPath(targetDir));
+                    }
+                    
                 }
 
                 REPARSE_DATA_BUFFER reparseDataBuffer = new REPARSE_DATA_BUFFER();

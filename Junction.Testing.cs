@@ -53,8 +53,9 @@ namespace System.IO
                     Directory.Delete(baseDirectory, true);
                 }
             }
-            catch
+            catch (Exception exc)
             {
+                System.Console.Error.WriteLine($"Could not delete {baseDirectory}, failed with error {exc.Message}");
             }
         }
 
@@ -138,6 +139,9 @@ namespace System.IO
             Assert(!Junction.Exists(junctionDirectory2));
             Assert(Directory.Exists(junctionDirectory2));
 
+
+            Junction.Create(junctionDirectory2, @"\??\Volume{00000035-3fe0-82c9-571e-d4016a000000}\", true, true);
+            Junction.ClearJunction(junctionDirectory2);
             Directory.Delete(junctionDirectory2, true);
             Directory.Delete(actualTarget1, true);
         }
