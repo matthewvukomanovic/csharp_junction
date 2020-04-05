@@ -338,7 +338,6 @@ namespace System.IO
                     {
                         targetDirBytes = Encoding.Unicode.GetBytes(NonInterpretedPathPrefix + Path.GetFullPath(targetDir));
                     }
-                    
                 }
 
                 REPARSE_DATA_BUFFER reparseDataBuffer = new REPARSE_DATA_BUFFER();
@@ -364,7 +363,9 @@ namespace System.IO
                             inBuffer, targetDirBytes.Length + 20, IntPtr.Zero, 0, out bytesReturned, IntPtr.Zero);
 
                     if (!result)
+                    {
                         ThrowLastWin32Error("Unable to create junction point.");
+                    }
                 }
                 finally
                 {Marshal.FreeHGlobal(inBuffer);
