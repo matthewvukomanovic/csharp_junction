@@ -49,14 +49,17 @@ namespace System.IO
             StringBuilder path = new StringBuilder(512);
             int size = GetFinalPathNameByHandle(directoryHandle.DangerousGetHandle(), path, path.Capacity, 0);
             if (size < 0) throw new Win32Exception(Marshal.GetLastWin32Error()); // The remarks section of GetFinalPathNameByHandle mentions the return being prefixed with "\\?\" // More information about "\\?\" here -> http://msdn.microsoft.com/en-us/library/aa365247(v=VS.85).aspx
-            if (path.Length > 3 && path[0] == '\\' && path[1] == '\\' && path[2] == '?' && path[3] == '\\')
+
+            var targetDir = path.ToString();
+            if (targetDir.StartsWith(NonInterpretedPathPrefix))
             {
-                return path.ToString().Substring(4);
+                if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                }
             }
-            else
-            {
-                return path.ToString();
-            }
+
+            return targetDir;
         }
 
         /// <summary>
@@ -109,6 +112,7 @@ namespace System.IO
         /// path in the virtual file system.
         /// </summary>
         private const string NonInterpretedPathPrefix = @"\??\";
+        private const string VolumePrefix = NonInterpretedPathPrefix + "Volume";
 
         [Flags]
         public enum EFileAccess : uint
@@ -292,7 +296,7 @@ namespace System.IO
             }
             else
             {
-                if (targetDir.StartsWith(NonInterpretedPathPrefix + "Volume"))
+                if (targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
                 {
                     isVolume = true;
                 }
@@ -417,7 +421,12 @@ namespace System.IO
                             reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
 
                     if (targetDir.StartsWith(NonInterpretedPathPrefix))
-                        targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                    {
+                        if(!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                        }
+                    }
 
                     return targetDir;
                 }
@@ -598,7 +607,12 @@ namespace System.IO
                         reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
 
                 if (targetDir.StartsWith(NonInterpretedPathPrefix))
-                    targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                {
+                    if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                    }
+                }
 
                 return targetDir;
             }
