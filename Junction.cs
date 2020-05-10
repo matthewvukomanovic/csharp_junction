@@ -645,6 +645,31 @@ namespace System.IO
         {
             throw new IOException(message, Marshal.GetExceptionForHR(Marshal.GetHRForLastWin32Error()));
         }
+
+        [DllImport("Kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        static extern bool CreateHardLinkW(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
+
+
+        /// <summary>
+        /// Creates a file as a hard link to an existing file
+        /// </summary>
+        /// <param name="newLinkName"></param>
+        /// <param name="existingFileName"></param>
+        /// <returns></returns>
+        public static bool CreateHardLink(string newLinkName, string existingFileName)
+        {
+            //[DllImport("Kernel32.dll", CharSet = CharSet.Unicode)]
+            //static extern bool CreateHardLinkW(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
+            if( !CreateHardLinkW(newLinkName, existingFileName, IntPtr.Zero))
+            {
+                if (Marshal.GetLastWin32Error() != 0)
+                {
+                    ThrowLastWin32Error("Unable to create hard link.");
+                }
+            }
+            return true;
+        }
+
     }
 }
 
