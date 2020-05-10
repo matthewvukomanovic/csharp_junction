@@ -719,6 +719,87 @@ namespace System.IO
         [DllImport("kernel32.dll", SetLastError = false, CharSet = CharSet.Unicode)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool FindClose(IntPtr hFindFile);
+
+        /// <summary>
+        /// Gets the list of file locations for <paramref name="filename"/> i.e., the list of all the hardlinked files
+        /// </summary>
+        /// <param name="filename">The name of the file to get the hard links for</param>
+        /// <returns>The list of file locations for <paramref name="filename"/> i.e., the list of all the hardlinked files </returns>
+        public static Collections.Generic.List<string> GetFileLocations(string filename)
+        {
+            var list = new Collections.Generic.List<string>();
+
+            StringBuilder szVolumeRoot = new StringBuilder(HIGH_MAX_PATH);
+
+            if (!GetVolumePathNameW(filename, szVolumeRoot, (uint)szVolumeRoot.MaxCapacity))
+            {
+                if (Marshal.GetLastWin32Error() != 0)
+                {
+                    ThrowLastWin32Error("Unable to create hard link.");
+                }
+            }
+
+            StringBuilder szFileName = new StringBuilder(HIGH_MAX_PATH);
+            uint length = (uint)szFileName.MaxCapacity;
+
+            var hFind = FindFirstFileNameW(filename, 0, ref length, szFileName);
+            try
+            {
+                if ((ulong)hFind.ToInt64() == INVALID_HANDLE_VALUE64)
+                {
+                    if (Marshal.GetLastWin32Error() != 0)
+                    {
+                        ThrowLastWin32Error("Unable to get the file locations");
+                    }
+                }
+
+                list.Add(CombinePaths(szVolumeRoot.ToString(), szFileName.ToString()));
+
+                length = (uint)szFileName.MaxCapacity;
+
+                while (FindNextFileNameW(hFind, ref length, szFileName))
+                {
+                    list.Add(CombinePaths(szVolumeRoot.ToString(), szFileName.ToString()));
+                    length = (uint)szFileName.MaxCapacity;
+                }
+            }
+            finally
+            {
+                if ((ulong)hFind.ToInt64() != INVALID_HANDLE_VALUE64)
+                {
+                    if(!FindClose(hFind))
+                    {
+                        if (Marshal.GetLastWin32Error() != 0)
+                        {
+                            ThrowLastWin32Error("Unable to close the file locations file handle");
+                        }
+                    }
+                }
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// Combines the paths where the second one might start with a '\'
+        /// </summary>
+        /// <param name="start"></param>
+        /// <param name="finish"></param>
+        /// <returns>The combined paths</returns>
+        private static string CombinePaths(string start, string finish)
+        {
+            if( start.Length > 0 && start[start.Length-1] == '\\'
+                &&
+                finish.Length > 1 && finish[0] == '\\'
+                )
+            {
+                if( finish.Length > 2)
+                {
+                    return Path.Combine(start, finish.Substring(1));
+                }
+                return start;
+            }
+            return Path.Combine(start, finish);
+        }
     }
 }
 
