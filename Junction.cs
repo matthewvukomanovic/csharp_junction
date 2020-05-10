@@ -51,7 +51,7 @@ namespace System.IO
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
-            StringBuilder path = new StringBuilder(512);
+            StringBuilder path = new StringBuilder(HIGH_MAX_PATH);
             int size = GetFinalPathNameByHandle(directoryHandle.DangerousGetHandle(), path, path.Capacity, 0);
             if (size < 0) throw new Win32Exception(Marshal.GetLastWin32Error()); // The remarks section of GetFinalPathNameByHandle mentions the return being prefixed with "\\?\" // More information about "\\?\" here -> http://msdn.microsoft.com/en-us/library/aa365247(v=VS.85).aspx
 
