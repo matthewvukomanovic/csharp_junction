@@ -649,7 +649,6 @@ namespace System.IO
         [DllImport("Kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         static extern bool CreateHardLinkW(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
-
         /// <summary>
         /// Creates a file as a hard link to an existing file
         /// </summary>
