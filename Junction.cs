@@ -670,6 +670,55 @@ namespace System.IO
             return true;
         }
 
+        /// <summary>Retrieves the volume mount point where the specified path is mounted.</summary>
+        /// <returns>
+        /// If the function succeeds, the return value is nonzero.
+        /// If the function fails, the return value is zero. To get extended error information, call GetLastError.
+        /// To get extended error information call Win32Exception()
+        /// </returns>
+        /// <remarks>Minimum supported client: Windows XP</remarks>
+        /// <remarks>Minimum supported server: Windows Server 2003</remarks>
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "GetVolumePathNameW")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetVolumePathNameW([MarshalAs(UnmanagedType.LPWStr)] string lpszFileName, StringBuilder lpszVolumePathName, [MarshalAs(UnmanagedType.U4)] uint cchBufferLength);
+
+        /// <summary>Creates an enumeration of all the hard links to the specified file.
+        /// The FindFirstFileNameW function returns a handle to the enumeration that can be used on subsequent calls to the FindNextFileNameW function.
+        /// </summary>
+        /// <returns>
+        /// If the function succeeds, the return value is a search handle that can be used with the FindNextFileNameW function or closed with the FindClose function.
+        /// If the function fails, the return value is INVALID_HANDLE_VALUE (0xffffffff). To get extended error information, call the GetLastError function.
+        /// </returns>
+        /// <remarks>Minimum supported client: Windows Vista</remarks>
+        /// <remarks>Minimum supported server: Windows Server 2008</remarks>
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "FindFirstFileNameW")]
+        static extern IntPtr FindFirstFileNameW([MarshalAs(UnmanagedType.LPWStr)] string lpFileName, uint dwFlags, [In, Out] ref uint stringLength, StringBuilder linkName);
+
+        /// <summary>
+        ///   Continues enumerating the hard links to a file using the handle returned by a successful call to the FindFirstFileName function.
+        /// </summary>
+        /// <remarks>Minimum supported client: Windows Vista [desktop apps only].</remarks>
+        /// <remarks>Minimum supported server: Windows Server 2008 [desktop apps only].</remarks>
+        /// <returns>
+        ///   If the function succeeds, the return value is nonzero. If the function fails, the return value is zero (0). To get extended error
+        ///   information, call GetLastError. If no matching files can be found, the GetLastError function returns ERROR_HANDLE_EOF.
+        /// </returns>
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "FindNextFileNameW")]
+        static extern bool FindNextFileNameW(IntPtr handle, [In, Out] ref uint stringLength, StringBuilder linkName);
+
+        /// <summary>
+        ///   Closes a file search handle opened by the FindFirstFile, FindFirstFileEx, FindFirstFileNameW, FindFirstFileNameTransactedW,
+        ///   FindFirstFileTransacted, FindFirstStreamTransactedW, or FindFirstStreamW functions.
+        /// </summary>
+        /// <remarks>Minimum supported client: Windows XP [desktop apps | Windows Store apps].</remarks>
+        /// <remarks>Minimum supported server: Windows Server 2003 [desktop apps | Windows Store apps].</remarks>
+        /// <returns>
+        ///   If the function succeeds, the return value is nonzero. If the function fails, the return value is zero. To get extended error
+        ///   information, call GetLastError.
+        /// </returns>
+        [DllImport("kernel32.dll", SetLastError = false, CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool FindClose(IntPtr hFindFile);
     }
 }
 
