@@ -12,6 +12,11 @@ namespace System.IO
     /// </summary>
     public static partial class Junction
     {
+        public const int MAX_PATH = 260;
+        public const int HIGH_MAX_PATH = 0x7FFF; // (32767)
+        public const uint INVALID_HANDLE_VALUE = 0xffffffff;
+        public const ulong INVALID_HANDLE_VALUE64 = 0xffffffffffffffff;
+
         [DllImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern int GetFinalPathNameByHandle(IntPtr handle, [In, Out] StringBuilder path, int bufLen, int flags);
 
