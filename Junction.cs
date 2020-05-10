@@ -740,7 +740,7 @@ namespace System.IO
             {
                 if (Marshal.GetLastWin32Error() != 0)
                 {
-                    ThrowLastWin32Error("Unable to create hard link.");
+                    ThrowLastWin32Error("Unable to get the volume information for " + filename);
                 }
             }
 
@@ -754,7 +754,7 @@ namespace System.IO
                 {
                     if (Marshal.GetLastWin32Error() != 0)
                     {
-                        ThrowLastWin32Error("Unable to get the file locations");
+                        ThrowLastWin32Error("Unable to get the file locations for " + filename);
                     }
                 }
 
