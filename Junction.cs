@@ -63,6 +63,10 @@ namespace System.IO
                     targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
                 }
             }
+            else if (targetDir.StartsWith(NonInterpretedPathPrefix2))
+            {
+                targetDir = targetDir.Substring(NonInterpretedPathPrefix2.Length);
+            }
 
             return targetDir;
         }
@@ -118,6 +122,8 @@ namespace System.IO
         /// </summary>
         private const string NonInterpretedPathPrefix = @"\??\";
         private const string VolumePrefix = NonInterpretedPathPrefix + "Volume";
+
+        private const string NonInterpretedPathPrefix2 = @"\\?\";
 
         [Flags]
         public enum EFileAccess : uint
