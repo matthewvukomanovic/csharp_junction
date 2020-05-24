@@ -19,7 +19,6 @@
 
 #include "AltStreams.h"
 
-
 void PrintError(DWORD dwErr) {
   char szMsg[256];
   DWORD dwFlags = FORMAT_MESSAGE_IGNORE_INSERTS |
@@ -31,19 +30,24 @@ void PrintError(DWORD dwErr) {
   printf("\n");
 }
 
-
 void main(int argc, char *argv[]) {
     //"F:\Temp\delete\New Text Document.txt"
-  //NTQUERYINFORMATIONFILE NtQueryInformationFile;
   int iRetCode = EXIT_FAILURE;
 #define newcode
-
+//#define originalcode
 
 #ifdef newcode
   WIN32_FIND_STREAM_DATA fsd;
   HANDLE hFind = NULL;
   size_t length = 0;
   wchar_t *filename;
+  int len;
+
+  WCHAR wszStreamName[MAX_PATH];
+  char szStreamName[MAX_PATH], szPath[MAX_PATH];
+  LPSTR pszName;
+
+  ULONGLONG uTotalSize = 0;
 
   length = mbstowcs(NULL, argv[1], 0);
   filename = new wchar_t[length + 1];
@@ -54,18 +58,84 @@ void main(int argc, char *argv[]) {
 
   try {
       hFind = ::FindFirstStreamW(filename, FindStreamInfoStandard, &fsd, 0);
-      if (hFind == INVALID_HANDLE_VALUE) throw ::GetLastError();
+      if (hFind == INVALID_HANDLE_VALUE)
+      {
+          DWORD fileattributes = GetFileAttributesW(filename);
+          if ((fileattributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY)
+          {
+              goto endofprocessing;
+          }
+          else
+          {
+              throw ::GetLastError();
+          }
+      }
+
+      if (!::GetFullPathName(argv[1], MAX_PATH, szPath, &pszName)) throw ::GetLastError();
+      printf("%s\n", szPath);
 
       for (;;) {
-          printf("%-12I64u%S\n", fsd.StreamSize, fsd.cStreamName);
+#if 1
+          //// Get stream name
+          //memcpy(wszStreamName, pStreamInfo->StreamName, pStreamInfo->StreamNameLength);
+          //wszStreamName[pStreamInfo->StreamNameLength / sizeof(WCHAR)] = L'\0';
+
+          // Remove attribute tag and convert to char
+          //LPWSTR pTag = wcsstr(wszStreamName, L":$DATA");
+          //if (pTag) *pTag = L'\0';
+          //len = ::WideCharToMultiByte(CP_ACP, 0, wszStreamName, -1, szStreamName, MAX_PATH, NULL, NULL);
+#endif
+
+          // Get stream name
+          size_t totalLength = wcslen(fsd.cStreamName);
+          memcpy(wszStreamName, fsd.cStreamName, totalLength * sizeof(WCHAR));
+          wszStreamName[totalLength] = L'\0';
+
+          //(int)fsd.StreamSize.LowPart * 2
+          //wszStreamName[fsd.StreamSize.LowPart  * 2/ sizeof(WCHAR)] = L'\0';
+
+          // Remove attribute tag and convert to char
+          LPWSTR pTag = wcsstr(wszStreamName, L":$DATA");
+          if (pTag) *pTag = L'\0';
+          len = ::WideCharToMultiByte(CP_ACP, 0, wszStreamName, -1, szStreamName, MAX_PATH, NULL, NULL);
+
+          // Full path including stream name
+          strcpy(szPath, argv[1]);
+          if (strcmp(szStreamName, ":")) {
+              strcat(szPath, szStreamName);   // Named stream - attach stream name
+              iRetCode = EXIT_SUCCESS;        // Alternate stream found
+          }
+
+          if (len < 40) {
+              strcat(szStreamName, "                                        ");
+              szStreamName[40] = '\0';
+          }
+          else
+              strcat(szStreamName, " ");
+
+          printf("  %s%I64u\n", szStreamName, fsd.StreamSize);
+          uTotalSize += fsd.StreamSize.QuadPart;   // Compute total file size
+
+          //printf("%-12I64u%S\n", fsd.StreamSize, fsd.cStreamName);
           if (!::FindNextStreamW(hFind, &fsd)) {
               DWORD dr = ::GetLastError();
               if (dr != ERROR_HANDLE_EOF) throw dr;
               break;
           }
       }
+
+endofprocessing:
+      if (uTotalSize > 0)
+      {
+          printf("Total size: %I64u bytes.\n", uTotalSize);
+      }
+      else
+      {
+          printf("No streams found.");
+      }
   }
   catch (DWORD err) {
+      PrintError(err);
       printf("Error! Windows error code: %u\n", err);
   }
 
@@ -74,7 +144,7 @@ void main(int argc, char *argv[]) {
 #endif
 
 #ifdef originalcode
-
+  NTQUERYINFORMATIONFILE NtQueryInformationFile;
 
   if (argc != 2) {
       printf("\nList streams program: www.flexhex.com\n\nUsage:\n  LS file\n\nExample:\n  LS C:\\file.dat\n\n");
@@ -87,8 +157,6 @@ void main(int argc, char *argv[]) {
       IO_STATUS_BLOCK ioStatus;
       NTSTATUS status;
       HANDLE hFile;
-
-
 
     // Load function pointer
     (FARPROC&)NtQueryInformationFile = ::GetProcAddress(::GetModuleHandle("ntdll.dll"), "NtQueryInformationFile");
