@@ -40,7 +40,7 @@ void main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   }
 
-	strcpy(szName, argv[1]);
+    strcpy(szName, argv[1]);
 
   try {
     LPBYTE pInfoBlock = NULL;
@@ -83,7 +83,7 @@ void main(int argc, char *argv[]) {
 
     PFILE_STREAM_INFORMATION pStreamInfo = (PFILE_STREAM_INFORMATION)(LPVOID)pInfoBlock;
     ULONGLONG uTotalSize = 0;
-		int nStreams = 0;
+        int nStreams = 0;
     LARGE_INTEGER fsize;
     WCHAR wszStreamName[MAX_PATH];
     char szStreamName[MAX_PATH], szPath[MAX_PATH];
@@ -113,14 +113,14 @@ void main(int argc, char *argv[]) {
         strcat(szPath, szStreamName);   // Attach stream name
         iRetCode = EXIT_SUCCESS;        // Alternate stream found
 
- 				// Get stream size
-				hFile = ::CreateFile(szPath, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_DELETE_ON_CLOSE, NULL);
-				if (hFile == INVALID_HANDLE_VALUE) throw ::GetLastError();
-				if (!::GetFileSizeEx(hFile, &fsize)) throw ::GetLastError();
-				::CloseHandle(hFile);
+                // Get stream size
+                hFile = ::CreateFile(szPath, 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_DELETE_ON_CLOSE, NULL);
+                if (hFile == INVALID_HANDLE_VALUE) throw ::GetLastError();
+                if (!::GetFileSizeEx(hFile, &fsize)) throw ::GetLastError();
+                ::CloseHandle(hFile);
 
-				uTotalSize += fsize.QuadPart;   // Compute total file size
-				nStreams++;
+                uTotalSize += fsize.QuadPart;   // Compute total file size
+                nStreams++;
       }
 
       if (pStreamInfo->NextEntryOffset == 0) break;   // No more stream info records
