@@ -33,6 +33,13 @@ void PrintError(DWORD dwErr) {
 void main(int argc, char *argv[]) {
     //"F:\Temp\delete\New Text Document.txt"
   int iRetCode = EXIT_FAILURE;
+
+  int size = sizeof(LARGE_INTEGER);
+  size = sizeof(DWORD);
+  size = sizeof(LONG);
+  size = sizeof(LONGLONG);
+  size = sizeof(INT);
+
 #define newcode
 //#define originalcode
 
