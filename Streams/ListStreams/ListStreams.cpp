@@ -15,6 +15,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <stdio.h>
+#include <cstdlib>
 
 #include "AltStreams.h"
 
@@ -32,20 +33,62 @@ void PrintError(DWORD dwErr) {
 
 
 void main(int argc, char *argv[]) {
-  NTQUERYINFORMATIONFILE NtQueryInformationFile;
+    //"F:\Temp\delete\New Text Document.txt"
+  //NTQUERYINFORMATIONFILE NtQueryInformationFile;
   int iRetCode = EXIT_FAILURE;
+#define newcode
+
+
+#ifdef newcode
+  WIN32_FIND_STREAM_DATA fsd;
+  HANDLE hFind = NULL;
+  size_t length = 0;
+  wchar_t *filename;
+
+  length = mbstowcs(NULL, argv[1], 0);
+  filename = new wchar_t[length + 1];
+  mbstowcs(filename, argv[1], length + 1);
+  filename[length] = L'\0';
+
+  // Enumerate file's streams and print their sizes and names
+
+  try {
+      hFind = ::FindFirstStreamW(filename, FindStreamInfoStandard, &fsd, 0);
+      if (hFind == INVALID_HANDLE_VALUE) throw ::GetLastError();
+
+      for (;;) {
+          printf("%-12I64u%S\n", fsd.StreamSize, fsd.cStreamName);
+          if (!::FindNextStreamW(hFind, &fsd)) {
+              DWORD dr = ::GetLastError();
+              if (dr != ERROR_HANDLE_EOF) throw dr;
+              break;
+          }
+      }
+  }
+  catch (DWORD err) {
+      printf("Error! Windows error code: %u\n", err);
+  }
+
+  if (hFind != NULL) ::FindClose(hFind);
+  exit(iRetCode);
+#endif
+
+#ifdef originalcode
+
 
   if (argc != 2) {
-    printf("\nList streams program: www.flexhex.com\n\nUsage:\n  LS file\n\nExample:\n  LS C:\\file.dat\n\n");
-    exit(EXIT_SUCCESS);
+      printf("\nList streams program: www.flexhex.com\n\nUsage:\n  LS file\n\nExample:\n  LS C:\\file.dat\n\n");
+      exit(EXIT_SUCCESS);
   }
 
   try {
-    LPBYTE pInfoBlock = NULL;
-    ULONG uInfoBlockSize = 0;
-    IO_STATUS_BLOCK ioStatus;
-    NTSTATUS status;
-    HANDLE hFile;
+      LPBYTE pInfoBlock = NULL;
+      ULONG uInfoBlockSize = 0;
+      IO_STATUS_BLOCK ioStatus;
+      NTSTATUS status;
+      HANDLE hFile;
+
+
 
     // Load function pointer
     (FARPROC&)NtQueryInformationFile = ::GetProcAddress(::GetModuleHandle("ntdll.dll"), "NtQueryInformationFile");
@@ -143,4 +186,6 @@ void main(int argc, char *argv[]) {
   }
 
   exit(iRetCode);
+
+#endif
 }
