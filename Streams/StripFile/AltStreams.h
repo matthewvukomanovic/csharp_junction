@@ -5,7 +5,7 @@
 //
 
 
-typedef INT NTSTATUS;
+//typedef INT NTSTATUS;
 
 // The only return code we check for
 #define STATUS_BUFFER_OVERFLOW        ((NTSTATUS)0x80000005L)
