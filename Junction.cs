@@ -690,6 +690,8 @@ namespace System.IO
             {
                 if (!overwrite)
                     throw new IOException("File already exists and overwrite parameter is false.");
+
+                File.Delete(file);
             }
             else
             {
