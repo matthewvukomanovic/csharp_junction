@@ -16,6 +16,9 @@ namespace System.IO
         public const int HIGH_MAX_PATH = 0x7FFF; // (32767)
         public const uint INVALID_HANDLE_VALUE = 0xffffffff;
         public const ulong INVALID_HANDLE_VALUE64 = 0xffffffffffffffff;
+        public const uint SYMLINK_FLAG_RELATIVE = 0x00000001;
+
+        public const uint ERROR_ALREADY_EXISTS = 0x000000B7;
 
         [DllImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern int GetFinalPathNameByHandle(IntPtr handle, [In, Out] StringBuilder path, int bufLen, int flags);
@@ -30,12 +33,14 @@ namespace System.IO
                 , IntPtr hTemplateFile);
 
         [DllImport("kernel32.dll")]
-        static extern bool CreateSymbolicLink(string lpSymlinkFileName, string lpTargetFileName, SymbolicLinkEnum dwFlags);
+        public static extern bool CreateSymbolicLink(string lpSymlinkFileName, string lpTargetFileName, SymbolicLinkEnum dwFlags);
 
-        enum SymbolicLinkEnum
+        [Flags]
+        public enum SymbolicLinkEnum
         {
             File = 0,
-            Directory = 1
+            Directory = 1,
+            UnprivilegedCreate = 2,
         }
 
         public static string GetSymbolicLinkTarget(System.IO.DirectoryInfo symlink)
@@ -115,6 +120,14 @@ namespace System.IO
         /// Reparse point tag used to identify mount points and junction points.
         /// </summary>
         private const uint IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003;
+        private const uint IO_REPARSE_TAG_HSM                      = 0xC0000004;
+        private const uint IO_REPARSE_TAG_HSM2                     = 0x80000006;
+        private const uint IO_REPARSE_TAG_SIS                      = 0x80000007;
+        private const uint IO_REPARSE_TAG_WIM                      = 0x80000008;
+        private const uint IO_REPARSE_TAG_CSV                      = 0x80000009;
+        private const uint IO_REPARSE_TAG_DFS                      = 0x8000000A;
+        private const uint IO_REPARSE_TAG_SYMLINK                  = 0xA000000C;
+        private const uint IO_REPARSE_TAG_DFSR                     = 0x80000012;
 
         /// <summary>
         /// This prefix indicates to NTFS that the path is to be treated as a non-interpreted
@@ -184,8 +197,33 @@ namespace System.IO
         }
 
         //https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/ntifs/ns-ntifs-_reparse_data_buffer
+        [StructLayout(LayoutKind.Explicit)]
+        private struct OnlyType_REPARSE_DATA_BUFFER
+        {
+            /// <summary>
+            /// Reparse point tag. Must be a Microsoft reparse point tag.
+            /// </summary>
+            [FieldOffset(0)]
+            public uint ReparseTag;
+
+            /// <summary>
+            /// Size, in bytes, of the data after the Reserved member. This can be calculated by:
+            /// (4 * sizeof(ushort)) + SubstituteNameLength + PrintNameLength +
+            /// (namesAreNullTerminated ? 2 * sizeof(char) : 0);
+            /// </summary>
+            [FieldOffset(4)]
+            public ushort ReparseDataLength;
+
+            /// <summary>
+            /// Reserved; do not use.
+            /// </summary>
+            [FieldOffset(6)]
+            public ushort Reserved;
+        }
+
+        //https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/ntifs/ns-ntifs-_reparse_data_buffer
         [StructLayout(LayoutKind.Sequential)]
-        private struct REPARSE_DATA_BUFFER
+        private struct MountPoint_REPARSE_DATA_BUFFER
         {
             /// <summary>
             /// Reparse point tag. Must be a Microsoft reparse point tag.
@@ -232,6 +270,91 @@ namespace System.IO
             /// </summary>
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x3FF0)]
             public byte[] PathBuffer;
+        }
+
+        //https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/ntifs/ns-ntifs-_reparse_data_buffer
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SymbolicLink_REPARSE_DATA_BUFFER
+        {
+            /// <summary>
+            /// Reparse point tag. Must be a Microsoft reparse point tag.
+            /// </summary>
+            public uint ReparseTag;
+
+            /// <summary>
+            /// Size, in bytes, of the data after the Reserved member. This can be calculated by:
+            /// (4 * sizeof(ushort)) + SubstituteNameLength + PrintNameLength +
+            /// (namesAreNullTerminated ? 2 * sizeof(char) : 0);
+            /// </summary>
+            public ushort ReparseDataLength;
+
+            /// <summary>
+            /// Reserved; do not use.
+            /// </summary>
+            public ushort Reserved;
+
+            /// <summary>
+            /// Offset, in bytes, of the substitute name string in the PathBuffer array.
+            /// </summary>
+            public ushort SubstituteNameOffset;
+
+            /// <summary>
+            /// Length, in bytes, of the substitute name string. If this string is null-terminated,
+            /// SubstituteNameLength does not include space for the null character.
+            /// </summary>
+            public ushort SubstituteNameLength;
+
+            /// <summary>
+            /// Offset, in bytes, of the print name string in the PathBuffer array.
+            /// </summary>
+            public ushort PrintNameOffset;
+
+            /// <summary>
+            /// Length, in bytes, of the print name string. If this string is null-terminated,
+            /// PrintNameLength does not include space for the null character.
+            /// </summary>
+            public ushort PrintNameLength;
+
+            /// <summary>
+            /// Flags
+            /// </summary>
+            public uint Flags;
+
+            /// <summary>
+            /// A buffer containing the unicode-encoded path string. The path string contains
+            /// the substitute name string and print name string.
+            /// </summary>
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x3FEC)]
+            public byte[] PathBuffer;
+        }
+
+        //https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/content/ntifs/ns-ntifs-_reparse_data_buffer
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Generic_REPARSE_DATA_BUFFER
+        {
+            /// <summary>
+            /// Reparse point tag. Must be a Microsoft reparse point tag.
+            /// </summary>
+            public uint ReparseTag;
+
+            /// <summary>
+            /// Size, in bytes, of the data after the Reserved member. This can be calculated by:
+            /// (4 * sizeof(ushort)) + SubstituteNameLength + PrintNameLength +
+            /// (namesAreNullTerminated ? 2 * sizeof(char) : 0);
+            /// </summary>
+            public ushort ReparseDataLength;
+
+            /// <summary>
+            /// Reserved; do not use.
+            /// </summary>
+            public ushort Reserved;
+
+            /// <summary>
+            /// A buffer containing the unicode-encoded path string. The path string contains
+            /// the substitute name string and print name string.
+            /// </summary>
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 0x3FF8)]
+            public byte[] DataBuffer;
         }
 
         //https://docs.microsoft.com/en-us/windows/desktop/api/winnt/ns-winnt-_reparse_guid_data_buffer
@@ -351,7 +474,7 @@ namespace System.IO
                     }
                 }
 
-                REPARSE_DATA_BUFFER reparseDataBuffer = new REPARSE_DATA_BUFFER();
+                MountPoint_REPARSE_DATA_BUFFER reparseDataBuffer = new MountPoint_REPARSE_DATA_BUFFER();
 
                 reparseDataBuffer.ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
                 reparseDataBuffer.ReparseDataLength = (ushort)(targetDirBytes.Length + 12);
@@ -396,6 +519,201 @@ namespace System.IO
         /// <param name="allowTargetNotExist">If true then allows the target directory to not exist, therefore creating a junction pointing to a location which doesn't exist</param>
         /// <exception cref="IOException">Thrown when the junction point could not be created or when
         /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
+        public static void CreateSymlink2(string file, string targetFile, bool overwrite = false, bool allowTargetNotExist = false, bool asRelative = false)
+        {
+            //https://nixhacker.com/understanding-and-exploiting-symbolic-link-in-windows/
+            //http://www.flexhex.com/docs/articles/hard-links.phtml
+            //https://docs.microsoft.com/en-us/windows/win32/fileio/reparse-points
+            //https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-fscc/e57148b1-300b-4d1e-8f67-091de2de815e
+            var isVolume = false;
+
+            var fullTargetFilePath = targetFile;
+
+            if (string.IsNullOrWhiteSpace(targetFile))
+            {
+                if (!allowTargetNotExist)
+                {
+                    throw new IOException("Target path not specified.");
+                }
+            }
+            else
+            {
+                if (targetFile.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    isVolume = true;
+                }
+                else
+                {
+                    if(asRelative)
+                    {
+                        var directory = Path.GetDirectoryName(file);
+
+                        var actualTarget = Path.Combine(directory, targetFile);
+
+                        fullTargetFilePath = Path.GetFullPath(actualTarget);
+                    }
+                    else
+                    {
+                        targetFile = Path.GetFullPath(targetFile);
+                        fullTargetFilePath = targetFile;
+                    }
+                }
+            }
+
+            if (!isVolume && !allowTargetNotExist && !Directory.Exists(fullTargetFilePath) && !File.Exists(fullTargetFilePath))
+            {
+                throw new IOException("Target path does not exist, and have not allowed the target to not exist");
+            }
+
+            if (Directory.Exists(file))
+            {
+                if (!overwrite)
+                    throw new IOException("Directory already exists and overwrite parameter is false.");
+            }
+            else if (File.Exists(file))
+            {
+                if (!overwrite)
+                    throw new IOException("File already exists and overwrite parameter is false.");
+            }
+            else
+            {
+                //Directory.CreateDirectory(Junction);
+            }
+
+            using (SafeFileHandle handle = OpenReparsePoint(file, EFileAccess.GenericWrite, ECreationDisposition.OpenAlways))
+            {
+                byte[] targetFileBytes;
+                if (string.IsNullOrEmpty(targetFile))
+                {
+                    targetFileBytes = new byte[] { };
+                }
+                else
+                {
+                    if (isVolume)
+                    {
+                        targetFileBytes = Encoding.Unicode.GetBytes(targetFile);
+                    }
+                    else
+                    {
+                        targetFileBytes = Encoding.Unicode.GetBytes(NonInterpretedPathPrefix + targetFile);
+                    }
+                }
+
+                SymbolicLink_REPARSE_DATA_BUFFER reparseDataBuffer = new SymbolicLink_REPARSE_DATA_BUFFER();
+
+                reparseDataBuffer.ReparseTag = IO_REPARSE_TAG_SYMLINK;
+                reparseDataBuffer.ReparseDataLength = (ushort)(targetFileBytes.Length + 16);
+                reparseDataBuffer.SubstituteNameOffset = 0;
+                reparseDataBuffer.SubstituteNameLength = (ushort)targetFileBytes.Length;
+                reparseDataBuffer.PrintNameOffset = (ushort)(targetFileBytes.Length + 2);
+                reparseDataBuffer.PrintNameLength = 0;
+                reparseDataBuffer.Flags = asRelative ? SYMLINK_FLAG_RELATIVE : 0x00;
+                reparseDataBuffer.PathBuffer = new byte[0x3fec];
+                Array.Copy(targetFileBytes, reparseDataBuffer.PathBuffer, targetFileBytes.Length);
+
+                int inBufferSize = Marshal.SizeOf(reparseDataBuffer);
+                IntPtr inBuffer = Marshal.AllocHGlobal(inBufferSize);
+
+                try
+                {
+                    Marshal.StructureToPtr(reparseDataBuffer, inBuffer, false);
+
+                    int bytesReturned;
+                    bool result = DeviceIoControl(handle.DangerousGetHandle(), FSCTL_SET_REPARSE_POINT,
+                            inBuffer, targetFileBytes.Length + 24, IntPtr.Zero, 0, out bytesReturned, IntPtr.Zero);
+
+                    if (!result)
+                    {
+                        ThrowLastWin32Error();
+                        ThrowLastWin32Error("Unable to create junction point.");
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(inBuffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates a junction point from the specified directory to the specified target directory.
+        /// </summary>
+        /// <remarks>
+        /// Only works on NTFS.
+        /// </remarks>
+        /// <param name="Junction">The junction point path</param>
+        /// <param name="targetDir">The target directory</param>
+        /// <param name="overwrite">If true overwrites an existing reparse point or empty directory</param>
+        /// <param name="allowTargetNotExist">If true then allows the target directory to not exist, therefore creating a junction pointing to a location which doesn't exist</param>
+        /// <exception cref="IOException">Thrown when the junction point could not be created or when
+        /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
+        public static void CreateSymlink(string file, string targetFile, bool overwrite = false, bool allowTargetNotExist = false)
+        {
+            var isVolume = false;
+            string fullPath = string.Empty;
+            if (string.IsNullOrWhiteSpace(targetFile))
+            {
+                if (!allowTargetNotExist)
+                {
+                    throw new IOException("Target path not specified.");
+                }
+            }
+            else
+            {
+                if (targetFile.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    isVolume = true;
+                }
+                else
+                {
+                    fullPath = Path.GetFullPath(targetFile);
+                }
+            }
+
+            if (!isVolume && !allowTargetNotExist && !Directory.Exists(targetFile) && !File.Exists(targetFile))
+            {
+                throw new IOException("Target path does not exist, and have not allowed the target to not exist");
+            }
+
+            if (Directory.Exists(file))
+            {
+                if (!overwrite)
+                    throw new IOException("Directory already exists and overwrite parameter is false.");
+            }
+            else if (File.Exists(file))
+            {
+                if (!overwrite)
+                    throw new IOException("File already exists and overwrite parameter is false.");
+            }
+            else
+            {
+                //Directory.CreateDirectory(Junction);
+            }
+
+            if( string.Equals(fullPath, targetFile))
+            {
+                targetFile = NonInterpretedPathPrefix2 + targetFile;
+            }
+
+            var success = CreateSymbolicLink(file, targetFile, SymbolicLinkEnum.File);
+            if( !success)
+            {
+                ThrowLastWin32Error("Unable to create junction point.");
+            }
+        }
+
+        /// <summary>
+        /// Creates a junction point from the specified directory to the specified target directory.
+        /// </summary>
+        /// <remarks>
+        /// Only works on NTFS.
+        /// </remarks>
+        /// <param name="Junction">The junction point path</param>
+        /// <param name="targetDir">The target directory</param>
+        /// <param name="overwrite">If true overwrites an existing reparse point or empty directory</param>
+        /// <param name="allowTargetNotExist">If true then allows the target directory to not exist, therefore creating a junction pointing to a location which doesn't exist</param>
+        /// <exception cref="IOException">Thrown when the junction point could not be created or when
+        /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
         public static string GetJunctionData(string Junction)
         {
             if (!Directory.Exists(Junction))
@@ -405,7 +723,7 @@ namespace System.IO
 
             using (SafeFileHandle handle = OpenReparsePoint(Junction, EFileAccess.GenericWrite))
             {
-                int outBufferSize = Marshal.SizeOf(typeof(REPARSE_DATA_BUFFER));
+                int outBufferSize = Marshal.SizeOf(typeof(MountPoint_REPARSE_DATA_BUFFER));
                 IntPtr outBuffer = Marshal.AllocHGlobal(outBufferSize);
 
                 try
@@ -423,24 +741,46 @@ namespace System.IO
                         ThrowLastWin32Error("Unable to get information about junction point.");
                     }
 
-                    REPARSE_DATA_BUFFER reparseDataBuffer = (REPARSE_DATA_BUFFER)
-                        Marshal.PtrToStructure(outBuffer, typeof(REPARSE_DATA_BUFFER));
+                    OnlyType_REPARSE_DATA_BUFFER reparseDataBufferType = (OnlyType_REPARSE_DATA_BUFFER)
+                        Marshal.PtrToStructure(outBuffer, typeof(OnlyType_REPARSE_DATA_BUFFER));
 
-                    if (reparseDataBuffer.ReparseTag != IO_REPARSE_TAG_MOUNT_POINT)
-                        return null;
+                    if (reparseDataBufferType.ReparseTag == IO_REPARSE_TAG_MOUNT_POINT)
+                    {
+                        MountPoint_REPARSE_DATA_BUFFER reparseDataBuffer = (MountPoint_REPARSE_DATA_BUFFER)
+                            Marshal.PtrToStructure(outBuffer, typeof(MountPoint_REPARSE_DATA_BUFFER));
 
-                    string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer,
+                        string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer,
                             reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
 
-                    if (targetDir.StartsWith(NonInterpretedPathPrefix))
-                    {
-                        if(!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                        if (targetDir.StartsWith(NonInterpretedPathPrefix))
                         {
-                            targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                            if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                            }
                         }
-                    }
 
-                    return targetDir;
+                        return targetDir;
+                    }
+                    else if (reparseDataBufferType.ReparseTag == IO_REPARSE_TAG_SYMLINK)
+                    {
+                        SymbolicLink_REPARSE_DATA_BUFFER reparseDataBuffer = (SymbolicLink_REPARSE_DATA_BUFFER)
+                            Marshal.PtrToStructure(outBuffer, typeof(SymbolicLink_REPARSE_DATA_BUFFER));
+
+                        string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer,
+                            reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
+
+                        if (targetDir.StartsWith(NonInterpretedPathPrefix))
+                        {
+                            if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                            }
+                        }
+
+                        return targetDir;
+                    }
+                    return null;
                 }
                 finally
                 {
@@ -469,7 +809,7 @@ namespace System.IO
 
             using (SafeFileHandle handle = OpenReparsePoint(Junction, EFileAccess.GenericWrite))
             {
-                REPARSE_DATA_BUFFER reparseDataBuffer = new REPARSE_DATA_BUFFER();
+                MountPoint_REPARSE_DATA_BUFFER reparseDataBuffer = new MountPoint_REPARSE_DATA_BUFFER();
 
                 reparseDataBuffer.ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
                 reparseDataBuffer.ReparseDataLength = 0;
@@ -524,7 +864,7 @@ namespace System.IO
 
             using (SafeFileHandle handle = OpenReparsePoint(Junction, EFileAccess.GenericWrite))
             {
-                REPARSE_DATA_BUFFER reparseDataBuffer = new REPARSE_DATA_BUFFER();
+                MountPoint_REPARSE_DATA_BUFFER reparseDataBuffer = new MountPoint_REPARSE_DATA_BUFFER();
 
                 reparseDataBuffer.ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
                 reparseDataBuffer.ReparseDataLength = 0;
@@ -589,9 +929,73 @@ namespace System.IO
             }
         }
 
+        //private static string InternalGetTargetOriginal(SafeFileHandle handle)
+        //{
+        //    int outBufferSize = Marshal.SizeOf(typeof(REPARSE_DATA_BUFFER));
+        //    IntPtr outBuffer = Marshal.AllocHGlobal(outBufferSize);
+
+        //    try
+        //    {
+        //        int bytesReturned;
+        //        bool result = DeviceIoControl(handle.DangerousGetHandle(), FSCTL_GET_REPARSE_POINT,
+        //                IntPtr.Zero, 0, outBuffer, outBufferSize, out bytesReturned, IntPtr.Zero);
+
+        //        if (!result)
+        //        {
+        //            int error = Marshal.GetLastWin32Error();
+        //            if (error == ERROR_NOT_A_REPARSE_POINT)
+        //                return null;
+
+        //            ThrowLastWin32Error("Unable to get information about junction point.");
+        //        }
+
+        //        REPARSE_DATA_BUFFER2 reparseDataBuffer = (REPARSE_DATA_BUFFER2)
+        //            Marshal.PtrToStructure(outBuffer, typeof(REPARSE_DATA_BUFFER2));
+
+        //        if (reparseDataBuffer.ReparseTag == IO_REPARSE_TAG_MOUNT_POINT)
+        //        {
+        //            string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.MountPointReparseBuffer.PathBuffer,
+        //   reparseDataBuffer.MountPointReparseBuffer.SubstituteNameOffset, reparseDataBuffer.MountPointReparseBuffer.SubstituteNameLength);
+
+        //            if (targetDir.StartsWith(NonInterpretedPathPrefix))
+        //            {
+        //                if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+        //                {
+        //                    targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+        //                }
+        //            }
+
+        //            return targetDir;
+
+        //        }
+        //   //     else if (reparseDataBuffer.ReparseTag == IO_REPARSE_TAG_SYMLINK)
+        //   //     {
+        //   //         string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.SymbolicLinkReparseBuffer.PathBuffer,
+        //   //reparseDataBuffer.SymbolicLinkReparseBuffer.SubstituteNameOffset, reparseDataBuffer.SymbolicLinkReparseBuffer.SubstituteNameLength);
+
+        //   //         if (targetDir.StartsWith(NonInterpretedPathPrefix))
+        //   //         {
+        //   //             if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+        //   //             {
+        //   //                 targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+        //   //             }
+        //   //         }
+
+        //   //         return targetDir;
+
+        //   //     }
+        //        return null;
+
+        //    }
+        //    finally
+        //    {
+        //        Marshal.FreeHGlobal(outBuffer);
+        //    }
+        //}
+
         private static string InternalGetTarget(SafeFileHandle handle)
         {
-            int outBufferSize = Marshal.SizeOf(typeof(REPARSE_DATA_BUFFER));
+            int outBufferSize = Marshal.SizeOf(typeof(MountPoint_REPARSE_DATA_BUFFER));
             IntPtr outBuffer = Marshal.AllocHGlobal(outBufferSize);
 
             try
@@ -609,24 +1013,44 @@ namespace System.IO
                     ThrowLastWin32Error("Unable to get information about junction point.");
                 }
 
-                REPARSE_DATA_BUFFER reparseDataBuffer = (REPARSE_DATA_BUFFER)
-                    Marshal.PtrToStructure(outBuffer, typeof(REPARSE_DATA_BUFFER));
+                OnlyType_REPARSE_DATA_BUFFER onlyTypeBuffer = (OnlyType_REPARSE_DATA_BUFFER)
+                    Marshal.PtrToStructure(outBuffer, typeof(OnlyType_REPARSE_DATA_BUFFER));
 
-                if (reparseDataBuffer.ReparseTag != IO_REPARSE_TAG_MOUNT_POINT)
-                    return null;
-
-                string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer,
-                        reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
-
-                if (targetDir.StartsWith(NonInterpretedPathPrefix))
+                if (onlyTypeBuffer.ReparseTag == IO_REPARSE_TAG_MOUNT_POINT)
                 {
-                    if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
-                    {
-                        targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
-                    }
-                }
+                    MountPoint_REPARSE_DATA_BUFFER reparseDataBuffer = (MountPoint_REPARSE_DATA_BUFFER)
+                        Marshal.PtrToStructure(outBuffer, typeof(MountPoint_REPARSE_DATA_BUFFER));
 
-                return targetDir;
+                    string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer,
+                       reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
+
+                    if (targetDir.StartsWith(NonInterpretedPathPrefix))
+                    {
+                        if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                        }
+                    }
+                    return targetDir;
+                }
+                else if (onlyTypeBuffer.ReparseTag == IO_REPARSE_TAG_SYMLINK)
+                {
+                    SymbolicLink_REPARSE_DATA_BUFFER reparseDataBuffer = (SymbolicLink_REPARSE_DATA_BUFFER)
+                        Marshal.PtrToStructure(outBuffer, typeof(SymbolicLink_REPARSE_DATA_BUFFER));
+
+                    string targetDir = Encoding.Unicode.GetString(reparseDataBuffer.PathBuffer,
+                       reparseDataBuffer.SubstituteNameOffset, reparseDataBuffer.SubstituteNameLength);
+
+                    if (targetDir.StartsWith(NonInterpretedPathPrefix))
+                    {
+                        if (!targetDir.StartsWith(VolumePrefix, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            targetDir = targetDir.Substring(NonInterpretedPathPrefix.Length);
+                        }
+                    }
+                    return targetDir;
+                }
+                return null;
             }
             finally
             {
@@ -634,15 +1058,26 @@ namespace System.IO
             }
         }
 
-        private static SafeFileHandle OpenReparsePoint(string reparsePoint, EFileAccess accessMode)
+        private static SafeFileHandle OpenReparsePoint(string reparsePoint, EFileAccess accessMode, ECreationDisposition openDisposition = ECreationDisposition.OpenExisting)
         {
             SafeFileHandle reparsePointHandle = new SafeFileHandle(CreateFile(reparsePoint, accessMode,
                         EFileShare.Read | EFileShare.Write | EFileShare.Delete,
-                        IntPtr.Zero, ECreationDisposition.OpenExisting,
+                        IntPtr.Zero, openDisposition,
                         EFileAttributes.BackupSemantics | EFileAttributes.OpenReparsePoint, IntPtr.Zero), true);
 
-            if (Marshal.GetLastWin32Error() != 0)
-                ThrowLastWin32Error("Unable to open reparse point.");
+            var lastError = Marshal.GetLastWin32Error();
+
+            if( reparsePointHandle.IsInvalid)
+            {
+                ThrowLastWin32Error();
+            }
+
+            //if ((openDisposition == ECreationDisposition.OpenAlways && lastError != 0 && lastError != ERROR_ALREADY_EXISTS)
+            //    || (openDisposition != ECreationDisposition.OpenAlways && lastError != 0)
+            //    )
+            //    {
+            //    ThrowLastWin32Error();
+            //}
 
             return reparsePointHandle;
         }
@@ -650,6 +1085,12 @@ namespace System.IO
         private static void ThrowLastWin32Error(string message)
         {
             throw new IOException(message, Marshal.GetExceptionForHR(Marshal.GetHRForLastWin32Error()));
+        }
+
+        private static void ThrowLastWin32Error()
+        {
+            var errpr = Marshal.GetLastWin32Error();
+            throw Marshal.GetExceptionForHR(Marshal.GetHRForLastWin32Error());
         }
 
         [DllImport("Kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
