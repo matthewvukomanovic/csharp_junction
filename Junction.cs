@@ -406,6 +406,10 @@ namespace System.IO
                 EFileAttributes dwFlagsAndAttributes,
                 IntPtr hTemplateFile);
 
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetFileAttributesW")]
+        public static extern uint GetFileAttributes(string lpFileName);
+
         /// <summary>
         /// Creates a junction point from the specified directory to the specified target directory.
         /// </summary>
@@ -521,6 +525,8 @@ namespace System.IO
         /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
         public static void CreateSymlink2(string file, string targetFile, bool overwrite = false, bool allowTargetNotExist = false, bool asRelative = false)
         {
+            //https://stackoverflow.com/questions/5188527/how-to-deal-with-files-with-a-name-longer-than-259-characters
+            //https://docs.microsoft.com/en-us/archive/blogs/jeremykuhne/more-on-new-net-path-handling
             //https://nixhacker.com/understanding-and-exploiting-symbolic-link-in-windows/
             //http://www.flexhex.com/docs/articles/hard-links.phtml
             //https://docs.microsoft.com/en-us/windows/win32/fileio/reparse-points
@@ -1058,12 +1064,17 @@ namespace System.IO
             }
         }
 
-        private static SafeFileHandle OpenReparsePoint(string reparsePoint, EFileAccess accessMode, ECreationDisposition openDisposition = ECreationDisposition.OpenExisting)
+        private static SafeFileHandle OpenReparsePoint(string reparsePoint, EFileAccess accessMode
+            , ECreationDisposition openDisposition = ECreationDisposition.OpenExisting
+            , EFileShare share = EFileShare.Read | EFileShare.Write | EFileShare.Delete
+            , EFileAttributes flags = EFileAttributes.BackupSemantics | EFileAttributes.OpenReparsePoint
+            //, EFileAttributes flags = EFileAttributes.OpenReparsePoint
+            )
         {
             SafeFileHandle reparsePointHandle = new SafeFileHandle(CreateFile(reparsePoint, accessMode,
-                        EFileShare.Read | EFileShare.Write | EFileShare.Delete,
+                        share,
                         IntPtr.Zero, openDisposition,
-                        EFileAttributes.BackupSemantics | EFileAttributes.OpenReparsePoint, IntPtr.Zero), true);
+                        flags, IntPtr.Zero), true);
 
             var lastError = Marshal.GetLastWin32Error();
 
@@ -1081,13 +1092,12 @@ namespace System.IO
 
             return reparsePointHandle;
         }
-
-        private static void ThrowLastWin32Error(string message)
+        public static void ThrowLastWin32Error(string message)
         {
             throw new IOException(message, Marshal.GetExceptionForHR(Marshal.GetHRForLastWin32Error()));
         }
 
-        private static void ThrowLastWin32Error()
+        public static void ThrowLastWin32Error()
         {
             var errpr = Marshal.GetLastWin32Error();
             throw Marshal.GetExceptionForHR(Marshal.GetHRForLastWin32Error());
@@ -1165,6 +1175,133 @@ namespace System.IO
         [DllImport("kernel32.dll", SetLastError = false, CharSet = CharSet.Unicode)]
         [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool FindClose(IntPtr hFindFile);
+
+        /// <summary>
+        /// Searches a directory for a file or subdirectory with a name that matches a specific name (or partial name if wildcards are used).
+        /// </summary>
+        /// <param name="lpFileName">
+        /// The directory or path, and the file name. The file name can include wildcard characters, for example, an asterisk (*) or a
+        /// question mark (?).
+        /// <para>
+        /// This parameter should not be NULL, an invalid string (for example, an empty string or a string that is missing the terminating
+        /// null character), or end in a trailing backslash (\).
+        /// </para>
+        /// <para>
+        /// If the string ends with a wildcard, period (.), or directory name, the user must have access permissions to the root and all
+        /// subdirectories on the path.
+        /// </para>
+        /// </param>
+        /// <param name="lpFindFileData">A pointer to the WIN32_FIND_DATA structure that receives information about a found file or directory.</param>
+        /// <returns>
+        /// If the function succeeds, the return value is a search handle used in a subsequent call to FindNextFile or FindClose, and the
+        /// lpFindFileData parameter contains information about the first file or directory found.
+        /// <para>
+        /// If the function fails or fails to locate files from the search string in the lpFileName parameter, the return value is
+        /// INVALID_HANDLE_VALUE and the contents of lpFindFileData are indeterminate. To get extended error information, call the
+        /// GetLastError function.
+        /// </para>
+        /// <para>If the function fails because no matching files can be found, the GetLastError function returns ERROR_FILE_NOT_FOUND.</para>
+        /// </returns>
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto, EntryPoint = "FindFirstFileW")]
+        public static extern IntPtr FindFirstFile(string lpFileName, out WIN32_FIND_DATA lpFindFileData);
+
+        /// <summary>Continues a file search from a previous call to the FindFirstFile, FindFirstFileEx, or FindFirstFileTransacted functions.</summary>
+        /// <param name="hFindFile">The search handle returned by a previous call to the FindFirstFile or FindFirstFileEx function.</param>
+        /// <param name="lpFindFileData">A pointer to the WIN32_FIND_DATA structure that receives information about the found file or subdirectory.</param>
+        /// <returns>
+        /// If the function succeeds, the return value is nonzero and the lpFindFileData parameter contains information about the next file
+        /// or directory found.
+        /// <para>
+        /// If the function fails, the return value is zero and the contents of lpFindFileData are indeterminate. To get extended error
+        /// information, call the GetLastError function.
+        /// </para>
+        /// <para>If the function fails because no more matching files can be found, the GetLastError function returns ERROR_NO_MORE_FILES.</para>
+        /// </returns>
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool FindNextFile([In] IntPtr hFindFile, out WIN32_FIND_DATA lpFindFileData);
+
+        [Serializable, StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public struct WIN32_FIND_DATA
+        {
+            /// <summary>
+            /// The file attributes of a file.
+            /// <para>
+            /// For possible values and their descriptions, see <a href="https://msdn.microsoft.com/en-us/library/windows/desktop/gg258117(v=vs.85).aspx">File Attribute Constants</a>.
+            /// </para>
+            /// <para>The FILE_ATTRIBUTE_SPARSE_FILE attribute on the file is set if any of the streams of the file have ever been sparse.</para>
+            /// </summary>
+            public FileAttributes dwFileAttributes;
+
+            /// <summary>
+            /// A FILETIME structure that specifies when a file or directory was created.
+            /// <para>If the underlying file system does not support creation time, this member is zero.</para>
+            /// </summary>
+            public System.Runtime.InteropServices.ComTypes.FILETIME ftCreationTime;
+
+            /// <summary>
+            /// A FILETIME structure.
+            /// <para>For a file, the structure specifies when the file was last read from, written to, or for executable files, run.</para>
+            /// <para>
+            /// For a directory, the structure specifies when the directory is created. If the underlying file system does not support last
+            /// access time, this member is zero.
+            /// </para>
+            /// <para>
+            /// On the FAT file system, the specified date for both files and directories is correct, but the time of day is always set to midnight.
+            /// </para>
+            /// </summary>
+            public System.Runtime.InteropServices.ComTypes.FILETIME ftLastAccessTime;
+
+            /// <summary>
+            /// A FILETIME structure.
+            /// <para>
+            /// For a file, the structure specifies when the file was last written to, truncated, or overwritten, for example, when WriteFile or
+            /// SetEndOfFile are used. The date and time are not updated when file attributes or security descriptors are changed.
+            /// </para>
+            /// <para>
+            /// For a directory, the structure specifies when the directory is created. If the underlying file system does not support last write
+            /// time, this member is zero.
+            /// </para>
+            /// </summary>
+            public System.Runtime.InteropServices.ComTypes.FILETIME ftLastWriteTime;
+
+            /// <summary>
+            /// The high-order DWORD value of the file size, in bytes.
+            /// <para>This value is zero unless the file size is greater than MAXDWORD.</para>
+            /// <para>The size of the file is equal to (nFileSizeHigh * (MAXDWORD+1)) + nFileSizeLow.</para>
+            /// </summary>
+            public uint nFileSizeHigh;
+
+            /// <summary>The low-order DWORD value of the file size, in bytes.</summary>
+            public uint nFileSizeLow;
+
+            /// <summary>
+            /// If the dwFileAttributes member includes the FILE_ATTRIBUTE_REPARSE_POINT attribute, this member specifies the reparse point tag.
+            /// <para>Otherwise, this value is undefined and should not be used.</para>
+            /// </summary>
+            public int dwReserved0;
+
+            /// <summary>Reserved for future use.</summary>
+            public int dwReserved1;
+
+            /// <summary>The name of the file.</summary>
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string cFileName;
+
+            /// <summary>
+            /// An alternative name for the file.
+            /// <para>This name is in the classic 8.3 file name format.</para>
+            /// </summary>
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 14)]
+            public string cAlternateFileName;
+
+            /// <summary>Gets the size of the file, combining <see cref="nFileSizeLow"/> and <see cref="nFileSizeHigh"/>.</summary>
+            /// <value>The size of the file.</value>
+            public ulong FileSize => MAKELONG64(nFileSizeLow, nFileSizeHigh);
+
+        }
+
+        private static ulong MAKELONG64(uint dwLow, uint dwHigh) => ((ulong)dwHigh << 32) | ((ulong)dwLow & 0xffffffff);
 
         /// <summary>
         /// Gets the list of file locations for <paramref name="filename"/> i.e., the list of all the hardlinked files
@@ -1245,6 +1382,87 @@ namespace System.IO
                 return start;
             }
             return Path.Combine(start, finish);
+        }
+
+        public static Collections.Generic.List<WIN32_FIND_DATA> GetDirectoryListing(string filename)
+        {
+            Collections.Generic.List<WIN32_FIND_DATA> streamnames = new Collections.Generic.List<WIN32_FIND_DATA>();
+            IntPtr handle = IntPtr.Zero;
+            try
+            {
+                WIN32_FIND_DATA findData;
+
+                if (!filename.EndsWith("\\"))
+                {
+                    filename += "\\";
+                }
+
+                string searchPath = filename + "*";
+
+                handle = FindFirstFile(searchPath, out findData);
+
+                if (handle.IsInvalidPointer())
+                {
+                    return streamnames;
+                }
+
+
+                do
+                {
+                    if (findData.cFileName != "." && findData.cFileName != "..")
+                    {
+                        streamnames.Add(findData);
+                    }
+                } while (FindNextFile(handle, out findData));
+            }
+            finally
+            {
+                if (!handle.IsInvalidPointer())
+                {
+                    FindClose(handle);
+                }
+            }
+
+            // FindFirstFile
+            //Then While (FindNextFile)
+
+            return streamnames;
+        }
+
+        public static bool IsInvalidPointer(this IntPtr pointer) => IntPtr.Equals(pointer, new IntPtr(-1));
+    }
+
+    public static partial class Junction
+    {
+        public static class Constants
+        {
+            public const int MAX_PATH = 260;
+
+            public const uint FORMAT_MESSAGE_IGNORE_INSERTS = 0x00000200;
+            public const uint FORMAT_MESSAGE_FROM_STRING = 0x00000400;
+            public const uint FORMAT_MESSAGE_FROM_HMODULE = 0x00000800;
+            public const uint FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000;
+            public const uint FORMAT_MESSAGE_ARGUMENT_ARRAY = 0x00002000;
+            public const uint FORMAT_MESSAGE_MAX_WIDTH_MASK = 0x000000FF;
+
+            public const uint FILE_ATTRIBUTE_READONLY = 0x00000001;
+            public const uint FILE_ATTRIBUTE_HIDDEN = 0x00000002;
+            public const uint FILE_ATTRIBUTE_SYSTEM = 0x00000004;
+            public const uint FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
+            public const uint FILE_ATTRIBUTE_ARCHIVE = 0x00000020;
+            public const uint FILE_ATTRIBUTE_DEVICE = 0x00000040;
+            public const uint FILE_ATTRIBUTE_NORMAL = 0x00000080;
+            public const uint FILE_ATTRIBUTE_TEMPORARY = 0x00000100;
+            public const uint FILE_ATTRIBUTE_SPARSE_FILE = 0x00000200;
+            public const uint FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400;
+            public const uint FILE_ATTRIBUTE_COMPRESSED = 0x00000800;
+            public const uint FILE_ATTRIBUTE_OFFLINE = 0x00001000;
+            public const uint FILE_ATTRIBUTE_NOT_CONTENT_INDEXED = 0x00002000;
+            public const uint FILE_ATTRIBUTE_ENCRYPTED = 0x00004000;
+            public const uint FILE_ATTRIBUTE_INTEGRITY_STREAM = 0x00008000;
+            public const uint FILE_ATTRIBUTE_VIRTUAL = 0x00010000;
+            public const uint FILE_ATTRIBUTE_NO_SCRUB_DATA = 0x00020000;
+            public const uint INVALID_FILE_ATTRIBUTES = uint.MaxValue;
         }
     }
 }
