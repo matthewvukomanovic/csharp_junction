@@ -416,13 +416,13 @@ namespace System.IO
         /// <remarks>
         /// Only works on NTFS.
         /// </remarks>
-        /// <param name="Junction">The junction point path</param>
+        /// <param name="junctionPath">The junction point path</param>
         /// <param name="targetDir">The target directory</param>
         /// <param name="overwrite">If true overwrites an existing reparse point or empty directory</param>
         /// <param name="allowTargetNotExist">If true then allows the target directory to not exist, therefore creating a junction pointing to a location which doesn't exist</param>
         /// <exception cref="IOException">Thrown when the junction point could not be created or when
         /// an existing directory was found and <paramref name="overwrite" /> if false</exception>
-        public static void Create(string Junction, string targetDir, bool overwrite = false, bool allowTargetNotExist = false)
+        public static void Create(string junctionPath, string targetDir, bool overwrite = false, bool allowTargetNotExist = false)
         {
             var isVolume = false;
             if( string.IsNullOrWhiteSpace(targetDir))
@@ -449,17 +449,19 @@ namespace System.IO
                 throw new IOException("Target path does not exist or is not a directory.");
             }
 
-            if (Directory.Exists(Junction))
+            if (Directory.Exists(junctionPath))
             {
                 if (!overwrite)
+                {
                     throw new IOException("Directory already exists and overwrite parameter is false.");
+                }
             }
             else
             {
-                Directory.CreateDirectory(Junction);
+                Directory.CreateDirectory(junctionPath);
             }
 
-            using (SafeFileHandle handle = OpenReparsePoint(Junction, EFileAccess.GenericWrite))
+            using (SafeFileHandle handle = OpenReparsePoint(junctionPath, EFileAccess.GenericWrite))
             {
                 byte[] targetDirBytes;
                 if( string.IsNullOrEmpty(targetDir))
