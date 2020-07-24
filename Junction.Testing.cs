@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Linq;
 
 namespace System.IO
 {
@@ -61,6 +62,8 @@ namespace System.IO
 
         public static void RunTests()
         {
+            RunTestGetRelative();
+
             // Make sure that the directories dont already exist
             Assert(!Directory.Exists(junctionDirectory));
             Assert(!Directory.Exists(junctionDirectory2));
@@ -250,6 +253,72 @@ namespace System.IO
             Assert(targetList[testingIndex++] == full2FilePath);
 
             Directory.Delete(actualTarget1, true);
+        }
+
+        private static void RunTestGetRelative()
+        {
+            var failing = new[] {
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"c:\1\2\path\we\follow", targetPath = @"g:\1\2\onthedrive", expected=@"g:\1\2\onthedrive", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\..\onthedrive", expected=@"..\..\..\..\onthedrive", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\we\nowtarget", expected=@"nowtarget", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\we\differentiate\nowtarget", expected=@"differentiate\nowtarget", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\that\we\differentiate\nowtarget", expected=@"..\that\we\differentiate\nowtarget", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\path\we\nowtarget", expected=@"..\..\..\path\we\nowtarget", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\path\we\..\..\path\we\nowtarget", expected=@"..\..\..\path\we\nowtarget", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\something\else\..\..\path\we\nowtarget", expected=@"..\..\..\path\we\nowtarget", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\we\follow", expected=@"follow", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\we", expected=@".", },
+            new { ignoreCase=true, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path", expected=@"..", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"c:\1\2\path\we\follow", targetPath = @"g:\1\2\onthedrive", expected=@"g:\1\2\onthedrive", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\..\onthedrive", expected=@"..\..\..\..\..\onthedrive", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\nowtarget", expected=@"..\nowtarget", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\differentiate\nowtarget", expected=@"..\differentiate\nowtarget", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\that\we\differentiate\nowtarget", expected=@"..\..\that\we\differentiate\nowtarget", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\path\we\nowtarget", expected=@"..\..\..\..\path\we\nowtarget", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\path\we\..\..\path\we\nowtarget", expected=@"..\..\..\..\path\we\nowtarget", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\something\else\..\..\path\we\nowtarget", expected=@"..\..\..\..\path\we\nowtarget", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\follow", expected=@".", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we", expected=@"..", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path", expected=@"..\..", },
+            new { ignoreCase=true, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\follow\extra", expected=@"extra", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\FOLLOW\extra", expected=@"..\FOLLOW\extra", },
+
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"c:\1\2\path\we\follow", targetPath = @"g:\1\2\onthedrive", expected=@"g:\1\2\onthedrive", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\..\onthedrive", expected=@"..\..\..\..\onthedrive", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\we\nowtarget", expected=@"nowtarget", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\WE\nowtarget", expected=@"..\WE\nowtarget", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"patH\we\differentiate\nowtarget", expected=@"..\..\patH\we\differentiate\nowtarget", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\that\we\differentiate\nowtarget", expected=@"..\that\we\differentiate\nowtarget", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\path\we\nowtarget", expected=@"..\..\..\path\we\nowtarget", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\path\we\..\..\path\we\nowtarget", expected=@"..\..\..\path\we\nowtarget", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"..\something\else\..\..\path\we\nowtarget", expected=@"..\..\..\path\we\nowtarget", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\WE\follow", expected=@"..\WE\follow", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\we", expected=@".", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path\WE", expected=@"..\WE", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"path", expected=@"..", },
+            new { ignoreCase=false, relativeToParent=true, junctionPath = @"path\we\follow", targetPath = @"PATH", expected=@"..\..\PATH", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"c:\1\2\path\we\follow", targetPath = @"g:\1\2\onthedrive", expected=@"g:\1\2\onthedrive", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\..\onthedrive", expected=@"..\..\..\..\..\onthedrive", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\nowtarget", expected=@"..\nowtarget", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\differentiate\nowtarget", expected=@"..\differentiate\nowtarget", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\that\we\differentiate\nowtarget", expected=@"..\..\that\we\differentiate\nowtarget", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\path\we\nowtarget", expected=@"..\..\..\..\path\we\nowtarget", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\path\we\..\..\path\we\nowtarget", expected=@"..\..\..\..\path\we\nowtarget", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"..\something\else\..\..\path\we\nowtarget", expected=@"..\..\..\..\path\we\nowtarget", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\follow", expected=@".", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we\FOLLOW", expected=@"..\FOLLOW", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path\we", expected=@"..", },
+            new { ignoreCase=false, relativeToParent=false, junctionPath = @"path\we\follow", targetPath = @"path", expected=@"..\..", },
+        }
+            .Select(s => new { junctionPath = s.junctionPath, targetPath = s.targetPath, relativeToParent = s.relativeToParent, ignoreCase = s.ignoreCase, expected = s.expected, result = Junction.GetRelativePath(s.junctionPath, s.targetPath, s.relativeToParent, s.ignoreCase) })
+            .Select(s => new { junctionPath = s.junctionPath, targetPath = s.targetPath, relativeToParent = s.relativeToParent, ignoreCase = s.ignoreCase, expected = s.expected, result = s.result, same = s.expected == s.result })
+            .Where(s=>
+                    !s.same
+            ).ToList()
+            ;
+
+            Assert(failing.Count == 0, "There are relative tests which are failing");
+
         }
 
         private static void SetContentOfFile(string file, string contents)

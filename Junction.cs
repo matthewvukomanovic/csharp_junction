@@ -514,6 +514,95 @@ namespace System.IO
         }
 
         /// <summary>
+        /// Return a possible relative path for the target directory as in reference to the reference directory
+        /// If <paramref name="fromParentLevel"/> is <c>true</c> then the return value is relative to the parent of <paramref name="referenceDirectory"/>
+        /// </summary>
+        /// <param name="referenceDirectory">The directory which is the reference directory</param>
+        /// <param name="targetDir">The directory to target</param>
+        /// <param name="fromParentLevel">if <c>true</c> then the return value is relative to the parent of <paramref name="referenceDirectory"/></param>
+        /// <param name="ignoreCase">If paths should ignore case or not</param>
+        /// <returns>a potentially relative path</returns>
+        public static string GetRelativePath(string referenceDirectory, string targetDir, bool fromParentLevel = false, bool ignoreCase = true)
+        {
+            // Get the full directories first so that we can easliy process them.
+
+            var targetDirFull = Path.GetFullPath(targetDir);
+            var referenceDirectoryFull = Path.GetFullPath(referenceDirectory);
+
+            // Both must be not empty
+            if (referenceDirectoryFull.Length == 0 || targetDirFull.Length == 0)
+            {
+                throw new IOException("Cannot have an empty direcory reference");
+            }
+
+            var comparisonType = ignoreCase ? StringComparison.InvariantCultureIgnoreCase : StringComparison.InvariantCulture;
+
+            // If the first character doesn't match then it cannot be a relative reference
+            if (!string.Equals(targetDirFull[0].ToString(), referenceDirectoryFull[0].ToString(), comparisonType))
+            {
+                return targetDirFull;
+            }
+
+            // Create lists of the individual directory components
+            var targetPaths = new System.Collections.Generic.List<string>(targetDirFull.Split(Path.DirectorySeparatorChar));
+            var referencePaths = new System.Collections.Generic.List<string>(referenceDirectoryFull.Split(Path.DirectorySeparatorChar));
+
+            // If running relative to the parent level then remove the last entry if that is appropriate i.e., it is not a root directory
+            if (fromParentLevel)
+            {
+                if (referencePaths.Count > 1)
+                {
+                    referencePaths.RemoveAt(referencePaths.Count - 1);
+                }
+            }
+
+            //Run through the paths
+            var index = 0;
+            while (targetPaths.Count > index && referencePaths.Count > index)
+            {
+                if (string.Equals(targetPaths[index], referencePaths[index], comparisonType))
+                {
+                    index++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            // From index to end of the targets those are the final paths.
+            // From index to end of the reference paths, those are the paths which need to go down a level
+
+            string downLevel = "..";
+
+            var builder = new StringBuilder();
+
+            for (int i = index; i < referencePaths.Count; i++)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(Path.DirectorySeparatorChar);
+                }
+                builder.Append(downLevel);
+            }
+
+            for (int i = index; i < targetPaths.Count; i++)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append(Path.DirectorySeparatorChar);
+                }
+                builder.Append(targetPaths[i]);
+            }
+
+            if (builder.Length == 0)
+            {
+                return ".";
+            }
+            return builder.ToString();
+        }
+
+        /// <summary>
         /// Creates a junction point from the specified directory to the specified target directory.
         /// </summary>
         /// <remarks>
