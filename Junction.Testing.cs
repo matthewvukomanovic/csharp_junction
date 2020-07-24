@@ -20,7 +20,33 @@ namespace System.IO
         public const string junc1FilePath = "file1";
         public const string junc2FilePath = "file2";
 
+#if false
         public static void Main()
+        {
+            //var path = "C:\\";
+            //var listing = Junction.GetDirectoryListing(path);
+            //var item = Path.Combine(path, listing[0].cFileName);
+
+            Junction.CreateSymlink(@"C:\ProgramData\Oracle\Java\javapath\java.exe", @"C:\Program Files\Java\jre1.8.0_144\bin\java.exe", true); // C:\Windows.old\Program Files\Java\jre1.8.0_144\bin\java.exe
+
+            Junction.CreateSymlink(@"C:\ProgramData\Oracle\Java\javapath\java.exe", @"C:\Program Files\Java\jre1.8.0_144\bin\java.exe", true); // C:\Windows.old\Program Files\Java\jre1.8.0_144\bin\java.exe
+
+            string file, test;
+            file = @"C:\Users\Matthew Vukomanovic\Documents";
+
+            file = @"C:\Documents and Settings";
+            test = Junction.GetTarget(file);
+            file = @"C:\Users\Matthew Vukomanovic\.gitconfig";
+            test = Junction.GetTarget(file);
+
+            Junction.CreateSymlink2(file + "3", test, true, true);
+            Junction.CreateSymlink(file + "2", test, true, true);
+        }
+
+        public static void Main2()
+#else
+        public static void Main()
+#endif
         {
             ClearBaseDirectory();
 
