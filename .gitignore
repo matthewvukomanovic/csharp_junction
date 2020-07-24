@@ -9,3 +9,4 @@ Release/
 *.VC.opendb
 *.VC.db
 ipch/
+*.user
