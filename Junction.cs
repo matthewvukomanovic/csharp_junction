@@ -406,7 +406,6 @@ namespace System.IO
                 EFileAttributes dwFlagsAndAttributes,
                 IntPtr hTemplateFile);
 
-
         [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "GetFileAttributesW")]
         public static extern uint GetFileAttributes(string lpFileName);
 
@@ -508,7 +507,8 @@ namespace System.IO
                     }
                 }
                 finally
-                {Marshal.FreeHGlobal(inBuffer);
+                {
+                    Marshal.FreeHGlobal(inBuffer);
                 }
             }
         }
@@ -1302,7 +1302,6 @@ namespace System.IO
             /// <summary>Gets the size of the file, combining <see cref="nFileSizeLow"/> and <see cref="nFileSizeHigh"/>.</summary>
             /// <value>The size of the file.</value>
             public ulong FileSize => MAKELONG64(nFileSizeLow, nFileSizeHigh);
-
         }
 
         private static ulong MAKELONG64(uint dwLow, uint dwHigh) => ((ulong)dwHigh << 32) | ((ulong)dwLow & 0xffffffff);
@@ -1409,7 +1408,6 @@ namespace System.IO
                 {
                     return streamnames;
                 }
-
 
                 do
                 {
