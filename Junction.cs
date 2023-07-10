@@ -1000,14 +1000,7 @@ namespace System.IO
         /// or some other error occurs</exception>
         public static bool Exists(string path)
         {
-            if (!Directory.Exists(path))
-                return false;
-
-            using (SafeFileHandle handle = OpenReparsePoint(path, EFileAccess.GenericRead))
-            {
-                string target = InternalGetTarget(handle);
-                return target != null;
-            }
+            return GetTargetSafe(path) != null;
         }
 
         /// <summary>
@@ -1020,11 +1013,23 @@ namespace System.IO
         /// <returns>The target of the junction point</returns>
         /// <exception cref="IOException">Thrown when the specified path does not
         /// exist, is invalid, is not a junction point, or some other error occurs</exception>
-        public static string GetTarget(string Junction)
+        public static string GetTarget(string path)
         {
-            using (SafeFileHandle handle = OpenReparsePoint(Junction, EFileAccess.GenericRead))
+            using (SafeFileHandle handle = OpenReparsePoint(path, EFileAccess.GenericRead))
             {
                 return InternalGetTarget(handle);
+            }
+        }
+
+        public static string GetTargetSafe(string path)
+        {
+            if (!Directory.Exists(path))
+                return null;
+
+            using (SafeFileHandle handle = OpenReparsePoint(path, EFileAccess.GenericRead))
+            {
+                string target = InternalGetTarget(handle);
+                return target;
             }
         }
 
