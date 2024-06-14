@@ -82,7 +82,7 @@ namespace Junction
                     var actualStreamName = data.cStreamName.Substring(1, foundIndex - 1);
                     if( actualStreamName.Length > 0)
                     {
-
+                        bool skip = false;
                         if( actualStreamName != "$CMDTCID"
                             && actualStreamName != "$CmdTcID"
                             && actualStreamName != "$CmdZnID"
@@ -92,12 +92,18 @@ namespace Junction
                         {
 
                         }
+                        else
+                        {
+                            skip = true;
+                        }
 
                         string combinedName = filename + ":" + actualStreamName;
                         streamnames.Add(combinedName);
 
-                        Console.WriteLine(combinedName + "\t" + data.StreamSize);
-
+                        if(!skip)
+                        {
+                            Console.WriteLine(combinedName + "\t" + data.StreamSize);
+                        }
                     }
                 } while (Win32Functions.FindNextStream(h, out data));
                 //    yield return data;
