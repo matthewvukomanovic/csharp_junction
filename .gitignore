@@ -10,3 +10,4 @@ Release/
 *.VC.db
 ipch/
 *.user
+*.suo
