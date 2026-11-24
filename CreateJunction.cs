@@ -107,7 +107,10 @@ namespace CreateCheatEngineJunction
             {
                 var app = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name;
                 app = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
-                Console.WriteLine($@"{app} location targetDir [overwriteLocation] [allowTargetNotExist]
+                Console.WriteLine($@"Creates a junction while optionally allowing overriding an existing directory and allowing a target which doesnt exist.
+Second option allows createing a hard link.
+
+{app} location targetDir [overwriteLocation] [allowTargetNotExist]
 {app} /h location targetDir");
             }
             return 0;
