@@ -31,3 +31,9 @@ To build the unsafe testing exe (testing)
 "C:\Program Files (x86)\MSBuild\14.0\Bin\csc" -nologo /unsafe Junction.Unsafe.Testing.cs Junction.Unsafe.cs
 "C:\Program Files (x86)\MSBuild\14.0\Bin\csc" -nologo /unsafe Junction.Unsafe.Testing.cs Junction.Unsafe.cs -out:Junction.Testing.exe
 ```
+
+To build the create junction exe
+
+```
+"C:\Program Files (x86)\MSBuild\14.0\Bin\csc" -nologo -optimize -deterministic -pathmap:"%CD"=\publish -out:lib\CreateJunction.exe Junction.cs CreateJunction.cs
+```
